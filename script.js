@@ -781,6 +781,7 @@ const backHomeBtn = document.getElementById('backHomeBtn');
 
 function openAiJourney() {
   if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
+  aiFloatBtn?.classList.add('is-hidden');
   aiJourneyOverlay.classList.remove('hidden');
   aiJourneyOverlay.style.display = 'block';
   aiJourneyOverlay.setAttribute('aria-hidden', 'false');
@@ -792,6 +793,7 @@ function openAiJourney() {
 
 function closeAiJourney() {
   if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
+  aiFloatBtn?.classList.remove('is-hidden');
   aiJourneyOverlay.classList.add('hidden');
   aiJourneyOverlay.style.display = 'none';
   aiJourneyOverlay.setAttribute('aria-hidden', 'true');
