@@ -244,22 +244,24 @@
     </div>
 
 
-    <button id="aiFloatBtn" class="ai-float-btn" aria-label="打开AI助手">AI助手</button>
+    <button id="aiFloatBtn" class="ai-float-girl" aria-label="打开AI助手引导">
+      <img src="girl.png" alt="AI助手小女孩" />
+    </button>
 
-    <div id="aiFloatOverlay" class="ai-float-overlay hidden" aria-hidden="true">
-      <div id="aiFloatPanel" class="ai-float-panel" role="dialog" aria-label="悬浮AI对话框">
-        <div id="aiFloatDrag" class="ai-float-head">
-          <strong>AI康复助手</strong>
-          <button id="closeAiFloat" class="mini-close" aria-label="关闭">✕</button>
+    <div id="aiJourneyOverlay" class="ai-journey-overlay hidden" aria-hidden="true">
+      <section id="aiGreetingScene" class="ai-scene ai-scene-greeting" aria-label="AI助手欢迎页">
+        <button id="closeGreetingScene" class="scene-close-btn" aria-label="退出欢迎页">✕</button>
+        <div class="greeting-dialog">新伙伴，你好！这里是你的专属健康港湾，你可以自由探索不同区域，准备好了吗？</div>
+        <img class="scene-girl" src="girl.png" alt="欢迎引导小女孩" />
+        <div class="scene-actions">
+          <button id="readyBtn" class="scene-btn">准备好了</button>
+          <button id="exitBtn" class="scene-btn">我要退出</button>
         </div>
-        <div id="aiFloatMessages" class="ai-float-messages">
-          <div class="msg ai">你好，我是你的康复助手。告诉我你的身体情况，我来给你建议。</div>
-        </div>
-        <div class="ai-float-input">
-          <textarea id="aiFloatInput" placeholder="例如：我今天腿部酸痛，能做哪些低强度训练？"></textarea>
-          <button id="aiFloatSend" class="pill-btn">发送</button>
-        </div>
-      </div>
+      </section>
+
+      <section id="aiGroundScene" class="ai-scene ai-scene-ground hidden" aria-label="AI助手探索页">
+        <button id="backHomeBtn" class="scene-close-btn" aria-label="返回首页">返回首页</button>
+      </section>
     </div>
 
     <script src="script.js"></script>

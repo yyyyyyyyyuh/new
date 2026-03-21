@@ -771,106 +771,48 @@ setInterval(() => {
 }, 1000);
 
 const aiFloatBtn = document.getElementById('aiFloatBtn');
-const aiFloatOverlay = document.getElementById('aiFloatOverlay');
-const aiFloatPanel = document.getElementById('aiFloatPanel');
-const aiFloatDrag = document.getElementById('aiFloatDrag');
-const closeAiFloat = document.getElementById('closeAiFloat');
-const aiFloatInput = document.getElementById('aiFloatInput');
-const aiFloatSend = document.getElementById('aiFloatSend');
-const aiFloatMessages = document.getElementById('aiFloatMessages');
+const aiJourneyOverlay = document.getElementById('aiJourneyOverlay');
+const aiGreetingScene = document.getElementById('aiGreetingScene');
+const aiGroundScene = document.getElementById('aiGroundScene');
+const closeGreetingScene = document.getElementById('closeGreetingScene');
+const exitBtn = document.getElementById('exitBtn');
+const readyBtn = document.getElementById('readyBtn');
+const backHomeBtn = document.getElementById('backHomeBtn');
 
-function addFloatMessage(role, text) {
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  div.textContent = text;
-  aiFloatMessages.appendChild(div);
-  aiFloatMessages.scrollTop = aiFloatMessages.scrollHeight;
+function openAiJourney() {
+  aiJourneyOverlay.classList.remove('hidden');
+  aiJourneyOverlay.setAttribute('aria-hidden', 'false');
+  aiGreetingScene.classList.remove('hidden');
+  aiGroundScene.classList.add('hidden');
 }
 
-function replyByPrompt(q) {
-  if (q.includes('酸痛') || q.includes('疼')) return '建议今天以低强度拉伸和热敷为主，训练控制在20分钟内，疼痛加重请暂停并咨询理疗师。';
-  if (q.includes('计划')) return '我为你建议：每周5天轻中度训练+2天恢复，先从核心稳定、关节活动度开始。';
-  return '已收到你的问题。建议从低强度开始，关注心率、疼痛等级和睡眠，并按周复盘调整。';
+function closeAiJourney() {
+  aiJourneyOverlay.classList.add('hidden');
+  aiJourneyOverlay.setAttribute('aria-hidden', 'true');
+  aiGreetingScene.classList.remove('hidden');
+  aiGroundScene.classList.add('hidden');
 }
 
-function openAiFloat() {
-  aiFloatOverlay.classList.remove('hidden');
-  aiFloatOverlay.setAttribute('aria-hidden', 'false');
+function showGroundScene() {
+  aiGreetingScene.classList.add('hidden');
+  aiGroundScene.classList.remove('hidden');
 }
 
-function closeAiFloatPanel() {
-  aiFloatOverlay.classList.add('hidden');
-  aiFloatOverlay.setAttribute('aria-hidden', 'true');
-}
+aiFloatBtn?.addEventListener('click', openAiJourney);
+closeGreetingScene?.addEventListener('click', closeAiJourney);
+exitBtn?.addEventListener('click', closeAiJourney);
+readyBtn?.addEventListener('click', showGroundScene);
+backHomeBtn?.addEventListener('click', closeAiJourney);
 
-closeAiFloat.addEventListener('click', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  closeAiFloatPanel();
-});
-aiFloatOverlay.addEventListener('click', (e) => {
-  if (e.target === aiFloatOverlay) closeAiFloatPanel();
+aiJourneyOverlay?.addEventListener('click', (e) => {
+  if (e.target === aiJourneyOverlay) closeAiJourney();
 });
 
-aiFloatSend.addEventListener('click', () => {
-  const q = aiFloatInput.value.trim();
-  if (!q) return;
-  addFloatMessage('user', q);
-  addFloatMessage('ai', replyByPrompt(q));
-  aiFloatInput.value = '';
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && aiJourneyOverlay && !aiJourneyOverlay.classList.contains('hidden')) {
+    closeAiJourney();
+  }
 });
-
-function makeDraggable(handle, target, mode = 'free') {
-  let dragging = false;
-  let moved = false;
-  let startX = 0;
-  let startY = 0;
-  let baseLeft = 0;
-  let baseTop = 0;
-
-  const onMove = (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-
-    let left = baseLeft + dx;
-    let top = baseTop + dy;
-    const maxLeft = window.innerWidth - target.offsetWidth;
-    const maxTop = window.innerHeight - target.offsetHeight;
-    left = Math.min(Math.max(0, left), Math.max(0, maxLeft));
-    top = Math.min(Math.max(0, top), Math.max(0, maxTop));
-
-    target.style.left = `${left}px`;
-    target.style.top = `${top}px`;
-    target.style.right = 'auto';
-    target.style.bottom = 'auto';
-  };
-
-  const onUp = () => {
-    dragging = false;
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    if (mode === 'button' && !moved) openAiFloat();
-  };
-
-  handle.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.mini-close')) return;
-    dragging = true;
-    moved = false;
-    startX = e.clientX;
-    startY = e.clientY;
-    const rect = target.getBoundingClientRect();
-    baseLeft = rect.left;
-    baseTop = rect.top;
-    target.setPointerCapture?.(e.pointerId);
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
-  });
-}
-
-makeDraggable(aiFloatBtn, aiFloatBtn, 'button');
-makeDraggable(aiFloatDrag, aiFloatPanel, 'free');
 
 function init() {
   ensureUserModel();
