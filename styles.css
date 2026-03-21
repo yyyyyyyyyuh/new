@@ -212,37 +212,45 @@ h3 { margin: 0 0 8px; }
 }
 
 
+
 .greeting-button-layer {
   position: absolute;
   inset: 0;
 }
 
-.scene-actions {
-  display: flex;
-  gap: 22px;
-  margin-top: 30px;
-}
-
-.scene-actions-overlay {
+.scene-hotspot {
   position: absolute;
-  left: 50%;
-  top: 57%;
-  transform: translate(-4%, -50%);
-}
-.scene-btn {
-  min-width: 188px;
   border: none;
-  border-radius: 999px;
-  padding: 18px 28px;
-  background: linear-gradient(180deg, #ffe47f, #f6c546);
-  color: #80550c;
-  font-size: 20px;
-  font-weight: 700;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: transparent;
+  font-size: 0;
+  box-shadow: none;
   cursor: pointer;
-  box-shadow: inset 0 -3px 0 rgba(182, 118, 18, 0.22), 0 8px 18px rgba(145, 98, 0, 0.18);
+  appearance: none;
+  -webkit-appearance: none;
 }
 
+.scene-hotspot:focus-visible {
+  outline: 3px solid rgba(255, 209, 82, 0.9);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
 
+.hotspot-ready {
+  left: 48.6%;
+  top: 55.2%;
+  width: 10.9%;
+  height: 6.7%;
+}
+
+.hotspot-exit {
+  left: 61.7%;
+  top: 55.2%;
+  width: 10.9%;
+  height: 6.7%;
+}
 .calendar-week,
 .calendar-grid {
   display: grid;
@@ -417,18 +425,18 @@ h3 { margin: 0 0 8px; }
 }
 
 @media (max-width: 860px) {
-  .scene-actions-overlay {
-    left: 50%;
-    top: 58%;
-    transform: translate(-50%, -50%);
-    gap: 12px;
+  .hotspot-ready {
+    left: 44.5%;
+    top: 56.4%;
+    width: 17.8%;
+    height: 8.8%;
   }
 
-  .scene-btn {
-    min-width: 0;
-    flex: 1;
-    font-size: 16px;
-    padding: 12px 18px;
+  .hotspot-exit {
+    left: 64.8%;
+    top: 56.4%;
+    width: 17.8%;
+    height: 8.8%;
   }
 
   .scene-close-btn {
