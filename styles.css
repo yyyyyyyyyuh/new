@@ -196,6 +196,7 @@ h3 { margin: 0 0 8px; }
   background-image: linear-gradient(rgba(255,255,255,0.04), rgba(255,255,255,0.04)), url('./ground.png');
 }
 
+
 .scene-close-btn {
   position: absolute;
   top: 24px;
@@ -210,40 +211,73 @@ h3 { margin: 0 0 8px; }
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-.greeting-dialog {
+.scene-girl {
   position: absolute;
-  left: clamp(22px, 14vw, 220px);
-  top: clamp(48px, 10vh, 110px);
-  width: min(460px, calc(100vw - 48px));
-  padding: 26px 28px;
-  background: linear-gradient(180deg, rgba(255, 252, 241, 0.97), rgba(255, 246, 220, 0.97));
+  left: clamp(180px, 27vw, 420px);
+  top: clamp(350px, 47vh, 560px);
+  transform: translate(-50%, -50%);
+  width: clamp(140px, 14vw, 210px);
+  height: auto;
+}
+
+.greeting-scroll {
+  position: absolute;
+  left: clamp(470px, 48vw, 860px);
+  top: clamp(315px, 41vh, 470px);
+  transform: translate(-50%, -50%);
+  width: min(640px, 44vw);
+  min-height: 280px;
+  padding: 42px 46px 38px;
+  background: linear-gradient(180deg, rgba(255, 252, 244, 0.96), rgba(248, 239, 220, 0.96));
+  border-radius: 26px;
+  border: 2px solid rgba(168, 122, 60, 0.28);
+  box-shadow: 0 18px 40px rgba(108, 78, 41, 0.18);
+}
+
+.greeting-scroll::before,
+.greeting-scroll::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(168, 122, 60, 0.32);
+  background: linear-gradient(180deg, rgba(252, 248, 236, 0.98), rgba(241, 225, 190, 0.94));
+}
+
+.greeting-scroll::before {
+  left: 16px;
+}
+
+.greeting-scroll::after {
+  right: 16px;
+}
+
+.greeting-dialog {
   color: #5d4320;
-  font-size: clamp(18px, 2vw, 28px);
-  line-height: 1.8;
-  border-radius: 28px;
-  box-shadow: 0 16px 40px rgba(121, 90, 42, 0.24);
-  border: 2px solid rgba(202, 161, 73, 0.3);
+  font-size: clamp(28px, 2.6vw, 38px);
+  font-weight: 700;
+  line-height: 1.55;
+  letter-spacing: 1px;
 }
 
 .scene-actions {
-  position: absolute;
-  left: clamp(22px, 14vw, 220px);
-  top: calc(clamp(48px, 10vh, 110px) + 250px);
   display: flex;
-  gap: 20px;
+  gap: 22px;
+  margin-top: 30px;
 }
-
 .scene-btn {
-  min-width: 160px;
+  min-width: 188px;
   border: none;
   border-radius: 999px;
-  padding: 14px 26px;
-  background: linear-gradient(180deg, #f6d76b, #efbe39);
-  color: #754f0c;
-  font-size: 18px;
+  padding: 18px 28px;
+  background: linear-gradient(180deg, #ffe47f, #f6c546);
+  color: #80550c;
+  font-size: 20px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 10px 22px rgba(145, 98, 0, 0.18);
+  box-shadow: inset 0 -3px 0 rgba(182, 118, 18, 0.22), 0 8px 18px rgba(145, 98, 0, 0.18);
 }
 
 
@@ -421,20 +455,29 @@ h3 { margin: 0 0 8px; }
 }
 
 @media (max-width: 860px) {
+  .scene-girl {
+    left: 28%;
+    top: 63%;
+    width: min(28vw, 170px);
+  }
+
+  .greeting-scroll {
+    left: 50%;
+    top: 34%;
+    width: calc(100vw - 40px);
+    min-height: 0;
+    padding: 26px 24px 24px;
+  }
+
   .greeting-dialog {
-    left: 16px;
-    top: 24px;
-    width: calc(100vw - 32px);
-    font-size: 16px;
-    padding: 20px;
+    font-size: 18px;
+    line-height: 1.7;
   }
 
   .scene-actions {
-    width: calc(100vw - 32px);
-    left: 16px;
-    top: auto;
-    bottom: 30px;
+    flex-direction: row;
     gap: 12px;
+    margin-top: 20px;
   }
 
   .scene-btn {
