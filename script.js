@@ -780,25 +780,41 @@ const readyBtn = document.getElementById('readyBtn');
 const backHomeBtn = document.getElementById('backHomeBtn');
 
 function openAiJourney() {
+  if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
   aiJourneyOverlay.classList.remove('hidden');
+  aiJourneyOverlay.style.display = 'block';
   aiJourneyOverlay.setAttribute('aria-hidden', 'false');
   aiGreetingScene.classList.remove('hidden');
+  aiGreetingScene.style.display = 'block';
   aiGroundScene.classList.add('hidden');
+  aiGroundScene.style.display = 'none';
 }
 
 function closeAiJourney() {
+  if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
   aiJourneyOverlay.classList.add('hidden');
+  aiJourneyOverlay.style.display = 'none';
   aiJourneyOverlay.setAttribute('aria-hidden', 'true');
   aiGreetingScene.classList.remove('hidden');
+  aiGreetingScene.style.display = 'block';
   aiGroundScene.classList.add('hidden');
+  aiGroundScene.style.display = 'none';
 }
 
 function showGroundScene() {
+  if (!aiGreetingScene || !aiGroundScene) return;
   aiGreetingScene.classList.add('hidden');
+  aiGreetingScene.style.display = 'none';
   aiGroundScene.classList.remove('hidden');
+  aiGroundScene.style.display = 'block';
 }
 
-aiFloatBtn?.addEventListener('click', openAiJourney);
+['click', 'pointerup', 'touchend'].forEach((eventName) => {
+  aiFloatBtn?.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    openAiJourney();
+  });
+});
 closeGreetingScene?.addEventListener('click', closeAiJourney);
 exitBtn?.addEventListener('click', closeAiJourney);
 readyBtn?.addEventListener('click', showGroundScene);

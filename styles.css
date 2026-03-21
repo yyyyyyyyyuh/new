@@ -149,14 +149,14 @@ h3 { margin: 0 0 8px; }
 
 .ai-float-girl {
   position: fixed;
-  right: 24px;
-  bottom: 16px;
-  z-index: 60;
+  right: 18px;
+  bottom: 14px;
+  z-index: 120;
   border: none;
   background: transparent;
   padding: 0;
   cursor: pointer;
-  filter: drop-shadow(0 12px 24px rgba(84, 55, 30, 0.22));
+  filter: drop-shadow(0 8px 16px rgba(84, 55, 30, 0.18));
   transition: transform 0.2s ease;
 }
 
@@ -166,14 +166,15 @@ h3 { margin: 0 0 8px; }
 
 .ai-float-girl img {
   display: block;
-  width: clamp(120px, 14vw, 180px);
+  width: clamp(44px, 4.8vw, 60px);
   height: auto;
+  pointer-events: none;
 }
 
 .ai-journey-overlay {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 110;
   background: rgba(44, 31, 15, 0.18);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
