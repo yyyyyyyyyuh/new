@@ -240,14 +240,14 @@ h3 { margin: 0 0 8px; }
 
 .hotspot-ready {
   left: 48.6%;
-  top: 55.2%;
+  top: 51.85%;
   width: 10.9%;
   height: 6.7%;
 }
 
 .hotspot-exit {
   left: 61.7%;
-  top: 55.2%;
+  top: 51.85%;
   width: 10.9%;
   height: 6.7%;
 }
@@ -427,14 +427,14 @@ h3 { margin: 0 0 8px; }
 @media (max-width: 860px) {
   .hotspot-ready {
     left: 44.5%;
-    top: 56.4%;
+    top: 52%;
     width: 17.8%;
     height: 8.8%;
   }
 
   .hotspot-exit {
     left: 64.8%;
-    top: 56.4%;
+    top: 52%;
     width: 17.8%;
     height: 8.8%;
   }
