@@ -185,7 +185,7 @@ h3 { margin: 0 0 8px; }
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   opacity: 1;
-  transition: opacity 0.42s ease;
+  transition: opacity 0.68s ease;
 }
 
 .ai-journey-overlay.hidden {
