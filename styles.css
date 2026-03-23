@@ -184,16 +184,18 @@ h3 { margin: 0 0 8px; }
   background: rgba(44, 31, 15, 0.18);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  opacity: 1;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity 0.68s ease;
 }
 
 .ai-journey-overlay.hidden {
-  opacity: 0;
+  display: none;
 }
 
 .ai-journey-overlay.is-entering {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .ai-scene {
