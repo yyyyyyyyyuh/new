@@ -290,17 +290,11 @@ function renderList(elId, list, category) {
 }
 
 function renderSportsCards() {
-  const daily = todayMetrics();
-  const scored = new Set(daily.articleReads);
   const sportsList = document.getElementById('sportsList');
   if (!sportsList) return;
   sportsList.className = 'sports-card-grid';
   sportsList.innerHTML = sportsData
-    .map((item, idx) => {
-      const readId = `体育资讯-${idx}`;
-      const readDone = scored.has(readId);
-      return `<article class="sports-news-card"><img class="sports-news-cover" src="${item.image}" alt="${item.title}" /><div class="sports-news-body"><h3>${item.title}</h3><div class="sports-news-meta"><span>${item.date}</span><span>${item.source}</span></div><div class="sports-news-actions"><button class="hub-btn collect-btn" data-category="体育资讯" data-item="${item.title}">收藏</button><button class="hub-btn read-btn" data-read-id="${readId}">${readDone ? '已计分' : '阅读1分钟计分'}</button></div></div></article>`;
-    })
+    .map((item) => `<article class="sports-news-card"><img class="sports-news-cover" src="${item.image}" alt="${item.title}" /><div class="sports-news-body"><h3>${item.title}</h3><div class="sports-news-meta"><span>${item.date}</span><span>${item.source}</span></div><div class="sports-news-actions"><button class="hub-btn collect-btn" data-category="体育资讯" data-item="${item.title}">收藏</button></div></div></article>`)
     .join('');
 }
 
