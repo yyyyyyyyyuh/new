@@ -22,6 +22,12 @@ body {
   display: grid;
   grid-template-columns: 260px 1fr;
   gap: 16px;
+  opacity: 1;
+  transition: opacity 0.42s ease;
+}
+
+.app-shell.journey-fade-out {
+  opacity: 0;
 }
 
 .card {
@@ -178,6 +184,16 @@ h3 { margin: 0 0 8px; }
   background: rgba(44, 31, 15, 0.18);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  opacity: 1;
+  transition: opacity 0.42s ease;
+}
+
+.ai-journey-overlay.hidden {
+  opacity: 0;
+}
+
+.ai-journey-overlay.is-entering {
+  opacity: 1;
 }
 
 .ai-scene {

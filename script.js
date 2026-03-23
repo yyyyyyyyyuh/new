@@ -770,6 +770,7 @@ setInterval(() => {
   }
 }, 1000);
 
+const appShell = document.querySelector('.app-shell');
 const aiFloatBtn = document.getElementById('aiFloatBtn');
 const aiJourneyOverlay = document.getElementById('aiJourneyOverlay');
 const aiGreetingScene = document.getElementById('aiGreetingScene');
@@ -782,7 +783,9 @@ const backHomeBtn = document.getElementById('backHomeBtn');
 function openAiJourney() {
   if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
   aiFloatBtn?.classList.add('is-hidden');
+  appShell?.classList.add('journey-fade-out');
   aiJourneyOverlay.classList.remove('hidden');
+  aiJourneyOverlay.classList.add('is-entering');
   aiJourneyOverlay.style.display = 'block';
   aiJourneyOverlay.setAttribute('aria-hidden', 'false');
   aiGreetingScene.classList.remove('hidden');
@@ -794,6 +797,8 @@ function openAiJourney() {
 function closeAiJourney() {
   if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
   aiFloatBtn?.classList.remove('is-hidden');
+  appShell?.classList.remove('journey-fade-out');
+  aiJourneyOverlay.classList.remove('is-entering');
   aiJourneyOverlay.classList.add('hidden');
   aiJourneyOverlay.style.display = 'none';
   aiJourneyOverlay.setAttribute('aria-hidden', 'true');
