@@ -36,30 +36,9 @@ const knowledgeData = [
   '疼痛干预：持续疼痛时优先寻求专业理疗评估。',
 ];
 const sportsData = [
-  {
-    title: '2026年全国残疾人社区运动会新增轮椅篮球项目',
-    date: '2026-05-15',
-    source: '人民网体育',
-    image: 'https://images.unsplash.com/photo-1547347298-4074fc3086f0?w=900&auto=format&fit=crop',
-  },
-  {
-    title: '多地体育场完成无障碍升级，并开放康复时段',
-    date: '2026-05-12',
-    source: '中国健康报',
-    image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=900&auto=format&fit=crop',
-  },
-  {
-    title: '公益机构联合高校举办“运动康复开放周”活动',
-    date: '2026-05-10',
-    source: '新华社',
-    image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=900&auto=format&fit=crop',
-  },
-  {
-    title: '全民健身日：社区开设轮椅瑜伽公益课程',
-    date: '2026-05-08',
-    source: '城市社区报',
-    image: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=900&auto=format&fit=crop',
-  },
+  '2026 全国残疾人社区运动会新增轮椅篮球体验组。',
+  '多地体育馆完成无障碍升级并开放康复时段。',
+  '公益机构联合高校举办“运动康复开放周”。',
 ];
 
 const videoItems = [
@@ -316,15 +295,6 @@ function renderList(elId, list, category) {
       const readDone = scored.has(readId);
       return `<div>${item} <button class="hub-btn collect-btn" data-category="${category}" data-item="${item}">收藏</button> <button class="hub-btn read-btn" data-read-id="${readId}">${readDone ? '已计分' : '阅读1分钟计分'}</button></div>`;
     })
-    .join('');
-}
-
-function renderSportsCards() {
-  const sportsList = document.getElementById('sportsList');
-  if (!sportsList) return;
-  sportsList.className = 'sports-card-grid';
-  sportsList.innerHTML = sportsData
-    .map((item) => `<article class="sports-news-card"><img class="sports-news-cover" src="${item.image}" alt="${item.title}" /><div class="sports-news-body"><h3>${item.title}</h3><div class="sports-news-meta"><span>${item.date}</span><span>${item.source}</span></div><div class="sports-news-actions"><button class="hub-btn collect-btn" data-category="体育资讯" data-item="${item.title}">收藏</button></div></div></article>`)
     .join('');
 }
 
@@ -945,7 +915,7 @@ function init() {
   renderCalendar();
   renderCareText();
   renderList('knowledgeList', knowledgeData, '健康知识');
-  renderSportsCards();
+  renderList('sportsList', sportsData, '体育资讯');
   renderVideoCards();
   openVideoDetail(videoItems[0].id);
   initTherapyFilters();
