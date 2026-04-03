@@ -5,7 +5,6 @@ const todayDate = document.getElementById('todayDate');
 const planGrid = document.getElementById('planGrid');
 const careText = document.getElementById('careText');
 const aiPlan = document.getElementById('aiPlan');
-const watchTimer = document.getElementById('watchTimer');
 const restModal = document.getElementById('restModal');
 
 const calendarWeek = document.getElementById('calendarWeek');
@@ -806,7 +805,6 @@ document.getElementById('closeRestModal').addEventListener('click', () => restMo
 
 const video = document.getElementById('rehabVideo');
 let watchedSeconds = 0;
-let warned = false;
 let currentVideoScored = false;
 setInterval(() => {
   if (!video.paused && !video.ended) {
@@ -821,18 +819,8 @@ setInterval(() => {
       }
       currentVideoScored = true;
     }
-    watchTimer.textContent = `已连续观看：${Math.floor(watchedSeconds / 60)} 分钟`;
-    const limit = Number(document.getElementById('limitMinutes').value || 120) * 60;
-    const noDisturb = document.getElementById('noDisturb').checked;
-    const h = new Date().getHours();
-    const inQuiet = h >= 22 || h < 7;
-    if (watchedSeconds >= limit && !warned && !(noDisturb && inQuiet)) {
-      warned = true;
-      restModal.classList.remove('hidden');
-    }
   } else {
     watchedSeconds = 0;
-    warned = false;
     currentVideoScored = false;
   }
 }, 1000);
