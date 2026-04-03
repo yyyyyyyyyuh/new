@@ -38,9 +38,30 @@ const knowledgeData = [
   '疼痛干预：持续疼痛时优先寻求专业理疗评估。',
 ];
 const sportsData = [
-  '2026 全国残疾人社区运动会新增轮椅篮球体验组。',
-  '多地体育馆完成无障碍升级并开放康复时段。',
-  '公益机构联合高校举办“运动康复开放周”。',
+  {
+    title: '2026年全国残疾人社区运动会新增轮椅篮球项目',
+    date: '2026-05-15',
+    source: '人民网体育',
+    image: 'https://images.unsplash.com/photo-1547347298-4074fc3086f0?w=900&auto=format&fit=crop',
+  },
+  {
+    title: '多地体育场完成无障碍升级，并开放康复时段',
+    date: '2026-05-12',
+    source: '中国健康报',
+    image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=900&auto=format&fit=crop',
+  },
+  {
+    title: '公益机构联合高校举办“运动康复开放周”活动',
+    date: '2026-05-10',
+    source: '新华社',
+    image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=900&auto=format&fit=crop',
+  },
+  {
+    title: '全民健身日：社区开设轮椅瑜伽公益课程',
+    date: '2026-05-08',
+    source: '城市社区报',
+    image: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=900&auto=format&fit=crop',
+  },
 ];
 const defaultPlans = [
   ['晨间拉伸', '15分钟', '呼吸与上肢放松'],
@@ -265,6 +286,15 @@ function renderList(elId, list, category) {
       const readDone = scored.has(readId);
       return `<div>${item} <button class="hub-btn collect-btn" data-category="${category}" data-item="${item}">收藏</button> <button class="hub-btn read-btn" data-read-id="${readId}">${readDone ? '已计分' : '阅读1分钟计分'}</button></div>`;
     })
+    .join('');
+}
+
+function renderSportsCards() {
+  const sportsList = document.getElementById('sportsList');
+  if (!sportsList) return;
+  sportsList.className = 'sports-card-grid';
+  sportsList.innerHTML = sportsData
+    .map((item) => `<article class="sports-news-card"><img class="sports-news-cover" src="${item.image}" alt="${item.title}" /><div class="sports-news-body"><h3>${item.title}</h3><div class="sports-news-meta"><span>${item.date}</span><span>${item.source}</span></div><div class="sports-news-actions"><button class="hub-btn collect-btn" data-category="体育资讯" data-item="${item.title}">收藏</button></div></div></article>`)
     .join('');
 }
 
@@ -770,107 +800,89 @@ setInterval(() => {
   }
 }, 1000);
 
+const appShell = document.querySelector('.app-shell');
 const aiFloatBtn = document.getElementById('aiFloatBtn');
-const aiFloatOverlay = document.getElementById('aiFloatOverlay');
-const aiFloatPanel = document.getElementById('aiFloatPanel');
-const aiFloatDrag = document.getElementById('aiFloatDrag');
-const closeAiFloat = document.getElementById('closeAiFloat');
-const aiFloatInput = document.getElementById('aiFloatInput');
-const aiFloatSend = document.getElementById('aiFloatSend');
-const aiFloatMessages = document.getElementById('aiFloatMessages');
+const aiJourneyOverlay = document.getElementById('aiJourneyOverlay');
+const aiGreetingScene = document.getElementById('aiGreetingScene');
+const aiGroundScene = document.getElementById('aiGroundScene');
+const closeGreetingScene = document.getElementById('closeGreetingScene');
+const exitBtn = document.getElementById('exitBtn');
+const readyBtn = document.getElementById('readyBtn');
+const backHomeBtn = document.getElementById('backHomeBtn');
+const JOURNEY_FADE_IN_MS = 680;
+let journeyCloseTimer = null;
 
-function addFloatMessage(role, text) {
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  div.textContent = text;
-  aiFloatMessages.appendChild(div);
-  aiFloatMessages.scrollTop = aiFloatMessages.scrollHeight;
-}
-
-function replyByPrompt(q) {
-  if (q.includes('酸痛') || q.includes('疼')) return '建议今天以低强度拉伸和热敷为主，训练控制在20分钟内，疼痛加重请暂停并咨询理疗师。';
-  if (q.includes('计划')) return '我为你建议：每周5天轻中度训练+2天恢复，先从核心稳定、关节活动度开始。';
-  return '已收到你的问题。建议从低强度开始，关注心率、疼痛等级和睡眠，并按周复盘调整。';
-}
-
-function openAiFloat() {
-  aiFloatOverlay.classList.remove('hidden');
-  aiFloatOverlay.setAttribute('aria-hidden', 'false');
-}
-
-function closeAiFloatPanel() {
-  aiFloatOverlay.classList.add('hidden');
-  aiFloatOverlay.setAttribute('aria-hidden', 'true');
-}
-
-closeAiFloat.addEventListener('click', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  closeAiFloatPanel();
-});
-aiFloatOverlay.addEventListener('click', (e) => {
-  if (e.target === aiFloatOverlay) closeAiFloatPanel();
-});
-
-aiFloatSend.addEventListener('click', () => {
-  const q = aiFloatInput.value.trim();
-  if (!q) return;
-  addFloatMessage('user', q);
-  addFloatMessage('ai', replyByPrompt(q));
-  aiFloatInput.value = '';
-});
-
-function makeDraggable(handle, target, mode = 'free') {
-  let dragging = false;
-  let moved = false;
-  let startX = 0;
-  let startY = 0;
-  let baseLeft = 0;
-  let baseTop = 0;
-
-  const onMove = (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-
-    let left = baseLeft + dx;
-    let top = baseTop + dy;
-    const maxLeft = window.innerWidth - target.offsetWidth;
-    const maxTop = window.innerHeight - target.offsetHeight;
-    left = Math.min(Math.max(0, left), Math.max(0, maxLeft));
-    top = Math.min(Math.max(0, top), Math.max(0, maxTop));
-
-    target.style.left = `${left}px`;
-    target.style.top = `${top}px`;
-    target.style.right = 'auto';
-    target.style.bottom = 'auto';
-  };
-
-  const onUp = () => {
-    dragging = false;
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    if (mode === 'button' && !moved) openAiFloat();
-  };
-
-  handle.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.mini-close')) return;
-    dragging = true;
-    moved = false;
-    startX = e.clientX;
-    startY = e.clientY;
-    const rect = target.getBoundingClientRect();
-    baseLeft = rect.left;
-    baseTop = rect.top;
-    target.setPointerCapture?.(e.pointerId);
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
+function openAiJourney() {
+  if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
+  if (journeyCloseTimer) {
+    window.clearTimeout(journeyCloseTimer);
+    journeyCloseTimer = null;
+  }
+  aiFloatBtn?.classList.add('is-hidden');
+  appShell?.classList.add('journey-fade-out');
+  aiJourneyOverlay.classList.remove('is-entering');
+  aiJourneyOverlay.classList.remove('hidden');
+  aiJourneyOverlay.style.display = 'block';
+  aiJourneyOverlay.setAttribute('aria-hidden', 'false');
+  aiGreetingScene.classList.remove('hidden');
+  aiGreetingScene.style.display = 'block';
+  aiGroundScene.classList.add('hidden');
+  aiGroundScene.style.display = 'none';
+  void aiJourneyOverlay.offsetWidth;
+  requestAnimationFrame(() => {
+    aiJourneyOverlay.classList.add('is-entering');
   });
 }
 
-makeDraggable(aiFloatBtn, aiFloatBtn, 'button');
-makeDraggable(aiFloatDrag, aiFloatPanel, 'free');
+function closeAiJourney() {
+  if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
+  if (journeyCloseTimer) {
+    window.clearTimeout(journeyCloseTimer);
+  }
+  aiFloatBtn?.classList.remove('is-hidden');
+  appShell?.classList.remove('journey-fade-out');
+  aiJourneyOverlay.classList.remove('is-entering');
+  aiJourneyOverlay.setAttribute('aria-hidden', 'true');
+  journeyCloseTimer = window.setTimeout(() => {
+    if (aiJourneyOverlay.classList.contains('is-entering')) return;
+    aiJourneyOverlay.classList.add('hidden');
+    aiJourneyOverlay.style.display = 'none';
+    journeyCloseTimer = null;
+  }, JOURNEY_FADE_IN_MS);
+  aiGreetingScene.classList.remove('hidden');
+  aiGreetingScene.style.display = 'block';
+  aiGroundScene.classList.add('hidden');
+  aiGroundScene.style.display = 'none';
+}
+
+function showGroundScene() {
+  if (!aiGreetingScene || !aiGroundScene) return;
+  aiGreetingScene.classList.add('hidden');
+  aiGreetingScene.style.display = 'none';
+  aiGroundScene.classList.remove('hidden');
+  aiGroundScene.style.display = 'block';
+}
+
+['click', 'pointerup', 'touchend'].forEach((eventName) => {
+  aiFloatBtn?.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    openAiJourney();
+  });
+});
+closeGreetingScene?.addEventListener('click', closeAiJourney);
+exitBtn?.addEventListener('click', closeAiJourney);
+readyBtn?.addEventListener('click', showGroundScene);
+backHomeBtn?.addEventListener('click', closeAiJourney);
+
+aiJourneyOverlay?.addEventListener('click', (e) => {
+  if (e.target === aiJourneyOverlay) closeAiJourney();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && aiJourneyOverlay && !aiJourneyOverlay.classList.contains('hidden')) {
+    closeAiJourney();
+  }
+});
 
 function init() {
   ensureUserModel();
@@ -879,7 +891,7 @@ function init() {
   renderCalendar();
   renderCareText();
   renderList('knowledgeList', knowledgeData, '健康知识');
-  renderList('sportsList', sportsData, '体育资讯');
+  renderSportsCards();
   renderNearby(geoVideos.default);
   initTherapyFilters();
   renderTherapistsByRegion();
