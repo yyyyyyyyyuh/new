@@ -5,8 +5,6 @@ const todayDate = document.getElementById('todayDate');
 const planGrid = document.getElementById('planGrid');
 const careText = document.getElementById('careText');
 const aiPlan = document.getElementById('aiPlan');
-const nearbyVideos = document.getElementById('nearbyVideos');
-const locationHint = document.getElementById('locationHint');
 const watchTimer = document.getElementById('watchTimer');
 const restModal = document.getElementById('restModal');
 
@@ -38,30 +36,83 @@ const knowledgeData = [
   '疼痛干预：持续疼痛时优先寻求专业理疗评估。',
 ];
 const sportsData = [
-  '2026 全国残疾人社区运动会新增轮椅篮球体验组。',
-  '多地体育馆完成无障碍升级并开放康复时段。',
-  '公益机构联合高校举办“运动康复开放周”。',
+  {
+    title: '2026年全国残疾人社区运动会新增轮椅篮球项目',
+    date: '2026-05-15',
+    source: '人民网体育',
+    image: 'https://images.unsplash.com/photo-1547347298-4074fc3086f0?w=900&auto=format&fit=crop',
+  },
+  {
+    title: '多地体育场完成无障碍升级，并开放康复时段',
+    date: '2026-05-12',
+    source: '中国健康报',
+    image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=900&auto=format&fit=crop',
+  },
+  {
+    title: '公益机构联合高校举办“运动康复开放周”活动',
+    date: '2026-05-10',
+    source: '新华社',
+    image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=900&auto=format&fit=crop',
+  },
+  {
+    title: '全民健身日：社区开设轮椅瑜伽公益课程',
+    date: '2026-05-08',
+    source: '城市社区报',
+    image: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=900&auto=format&fit=crop',
+  },
 ];
+
+const videoItems = [
+  {
+    id: 'v1',
+    title: '健身60秒：靠墙静蹲的正确姿势，“蹲”错了膝盖损伤不可逆！',
+    src: 'video.mp4',
+    cover: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=900&auto=format&fit=crop',
+    duration: '01:00',
+  },
+  {
+    id: 'v2',
+    title: '居家核心稳定训练：5个动作激活深层肌群',
+    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    cover: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=900&auto=format&fit=crop',
+    duration: '03:14',
+  },
+  {
+    id: 'v3',
+    title: '肩颈舒缓训练：办公室人群放松指南',
+    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    cover: 'https://images.unsplash.com/photo-1549576490-b0b4831ef60a?w=900&auto=format&fit=crop',
+    duration: '02:32',
+  },
+  {
+    id: 'v4',
+    title: '下肢恢复训练：安全提升膝踝稳定性',
+    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    cover: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=900&auto=format&fit=crop',
+    duration: '04:06',
+  },
+  {
+    id: 'v5',
+    title: '呼吸节律训练：60秒恢复体能状态',
+    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    cover: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=900&auto=format&fit=crop',
+    duration: '01:20',
+  },
+  {
+    id: 'v6',
+    title: '睡前放松拉伸：改善睡眠质量的轻训练',
+    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    cover: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=900&auto=format&fit=crop',
+    duration: '02:48',
+  },
+];
+let activeVideoId = videoItems[0].id;
 const defaultPlans = [
   ['晨间拉伸', '15分钟', '呼吸与上肢放松'],
   ['核心稳定', '20分钟', '坐姿平衡训练'],
   ['步态辅助', '25分钟', '步态矫正与耐力'],
   ['睡前舒缓', '12分钟', '肩颈与情绪放松'],
 ];
-const geoVideos = {
-  default: [
-    { title: '轮椅肩背放松课', area: '同城康复中心', dist: '2.1km' },
-    { title: '社区无障碍球类体验', area: '市民体育公园', dist: '3.5km' },
-  ],
-  north: [
-    { title: '北方冬季关节保暖训练', area: '北城康复站', dist: '1.8km' },
-    { title: '居家平衡板训练', area: '邻里运动社', dist: '4.2km' },
-  ],
-  south: [
-    { title: '湿热气候下肌群恢复课', area: '南城区康复学院', dist: '2.7km' },
-    { title: '水中康复体验', area: '滨江运动中心', dist: '5.1km' },
-  ],
-};
 
 const therapyMap = {
   浙江: {
@@ -268,6 +319,15 @@ function renderList(elId, list, category) {
     .join('');
 }
 
+function renderSportsCards() {
+  const sportsList = document.getElementById('sportsList');
+  if (!sportsList) return;
+  sportsList.className = 'sports-card-grid';
+  sportsList.innerHTML = sportsData
+    .map((item) => `<article class="sports-news-card"><img class="sports-news-cover" src="${item.image}" alt="${item.title}" /><div class="sports-news-body"><h3>${item.title}</h3><div class="sports-news-meta"><span>${item.date}</span><span>${item.source}</span></div><div class="sports-news-actions"><button class="hub-btn collect-btn" data-category="体育资讯" data-item="${item.title}">收藏</button></div></div></article>`)
+    .join('');
+}
+
 function addFavorite(item, category) {
   const box = userBucket();
   box.favorites.unshift({ item, category, time: new Date().toLocaleString('zh-CN') });
@@ -284,10 +344,43 @@ function addHistory(item) {
   renderProfileData();
 }
 
-function renderNearby(list) {
-  nearbyVideos.innerHTML = list
-    .map((v) => `<div class="video-card"><h4>${v.title}</h4><p>${v.area}</p><p>距离：${v.dist}</p><button class="hub-btn play-nearby" data-title="${v.title}">观看并记录</button></div>`)
+function videoCommentsStore() {
+  return JSON.parse(localStorage.getItem('rehabVideoComments') || '{}');
+}
+
+function saveVideoComments(store) {
+  localStorage.setItem('rehabVideoComments', JSON.stringify(store));
+}
+
+function renderVideoCards() {
+  const grid = document.getElementById('videoCardGrid');
+  if (!grid) return;
+  grid.innerHTML = videoItems
+    .map((item) => `<article class="video-tile" data-video-id="${item.id}"><img src="${item.cover}" alt="${item.title}"/><div class="video-tile-body"><h4>${item.title}</h4><p>${item.duration}</p></div></article>`)
     .join('');
+}
+
+function renderVideoComments() {
+  const list = document.getElementById('videoCommentList');
+  if (!list) return;
+  const store = videoCommentsStore();
+  const comments = store[activeVideoId] || [];
+  list.innerHTML = comments.length ? comments.map((x) => `<p>${x}</p>`).join('') : '<p>暂无评论，来发布第一条吧。</p>';
+}
+
+function openVideoDetail(videoId) {
+  const detail = document.getElementById('videoDetailCard');
+  const title = document.getElementById('videoDetailTitle');
+  const source = document.getElementById('rehabVideoSource');
+  const player = document.getElementById('rehabVideo');
+  if (!detail || !title || !source || !player) return;
+  const target = videoItems.find((x) => x.id === videoId) || videoItems[0];
+  activeVideoId = target.id;
+  title.textContent = target.title;
+  source.src = target.src;
+  player.load();
+  detail.classList.remove('hidden');
+  renderVideoComments();
 }
 
 function renderPosts() {
@@ -537,41 +630,32 @@ checkinBtn.addEventListener('click', () => {
   renderHealthScore();
 });
 
-document.getElementById('locateBtn').addEventListener('click', () => {
-  if (!navigator.geolocation) {
-    locationHint.textContent = '浏览器不支持定位，已展示默认附近推荐。';
-    renderNearby(geoVideos.default);
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const zone = pos.coords.latitude > 30 ? 'north' : 'south';
-      locationHint.textContent = `定位成功（纬度 ${pos.coords.latitude.toFixed(2)}），已切换附近推荐。`;
-      renderNearby(geoVideos[zone]);
-    },
-    () => {
-      locationHint.textContent = '定位失败，已展示默认附近推荐。';
-      renderNearby(geoVideos.default);
-    },
-  );
+
+
+document.getElementById('videoCardGrid')?.addEventListener('click', (e) => {
+  const card = e.target.closest('.video-tile');
+  if (!card) return;
+  openVideoDetail(card.dataset.videoId);
 });
 
-document.getElementById('nearbyVideos').addEventListener('click', (e) => {
-  if (!e.target.classList.contains('play-nearby')) return;
-  addHistory(`观看附近视频：${e.target.dataset.title}`);
-  const title = e.target.dataset.title;
-  e.target.textContent = '计时中...';
-  e.target.disabled = true;
-  setTimeout(() => {
-    const metrics = todayMetrics();
-    if (!metrics.videoReads.includes(title)) {
-      metrics.videoReads.push(title);
-      saveUserBucket();
-      renderHealthScore();
-    }
-    e.target.textContent = '已计分';
-  }, 60000);
-  document.getElementById('rehabVideo').scrollIntoView({ behavior: 'smooth' });
+document.getElementById('videoFavBtn')?.addEventListener('click', () => {
+  const target = videoItems.find((x) => x.id === activeVideoId);
+  if (!target) return;
+  addFavorite(target.title, '视频专区');
+});
+
+document.getElementById('videoCommentBtn')?.addEventListener('click', () => {
+  const input = document.getElementById('videoCommentInput');
+  if (!input) return;
+  const content = input.value.trim();
+  if (!content) return;
+  const store = videoCommentsStore();
+  store[activeVideoId] = store[activeVideoId] || [];
+  store[activeVideoId].unshift(`${new Date().toLocaleTimeString('zh-CN')} · ${content}`);
+  store[activeVideoId] = store[activeVideoId].slice(0, 30);
+  saveVideoComments(store);
+  input.value = '';
+  renderVideoComments();
 });
 
 document.getElementById('generatePlanBtn')?.addEventListener('click', () => {
@@ -770,107 +854,89 @@ setInterval(() => {
   }
 }, 1000);
 
+const appShell = document.querySelector('.app-shell');
 const aiFloatBtn = document.getElementById('aiFloatBtn');
-const aiFloatOverlay = document.getElementById('aiFloatOverlay');
-const aiFloatPanel = document.getElementById('aiFloatPanel');
-const aiFloatDrag = document.getElementById('aiFloatDrag');
-const closeAiFloat = document.getElementById('closeAiFloat');
-const aiFloatInput = document.getElementById('aiFloatInput');
-const aiFloatSend = document.getElementById('aiFloatSend');
-const aiFloatMessages = document.getElementById('aiFloatMessages');
+const aiJourneyOverlay = document.getElementById('aiJourneyOverlay');
+const aiGreetingScene = document.getElementById('aiGreetingScene');
+const aiGroundScene = document.getElementById('aiGroundScene');
+const closeGreetingScene = document.getElementById('closeGreetingScene');
+const exitBtn = document.getElementById('exitBtn');
+const readyBtn = document.getElementById('readyBtn');
+const backHomeBtn = document.getElementById('backHomeBtn');
+const JOURNEY_FADE_IN_MS = 680;
+let journeyCloseTimer = null;
 
-function addFloatMessage(role, text) {
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  div.textContent = text;
-  aiFloatMessages.appendChild(div);
-  aiFloatMessages.scrollTop = aiFloatMessages.scrollHeight;
-}
-
-function replyByPrompt(q) {
-  if (q.includes('酸痛') || q.includes('疼')) return '建议今天以低强度拉伸和热敷为主，训练控制在20分钟内，疼痛加重请暂停并咨询理疗师。';
-  if (q.includes('计划')) return '我为你建议：每周5天轻中度训练+2天恢复，先从核心稳定、关节活动度开始。';
-  return '已收到你的问题。建议从低强度开始，关注心率、疼痛等级和睡眠，并按周复盘调整。';
-}
-
-function openAiFloat() {
-  aiFloatOverlay.classList.remove('hidden');
-  aiFloatOverlay.setAttribute('aria-hidden', 'false');
-}
-
-function closeAiFloatPanel() {
-  aiFloatOverlay.classList.add('hidden');
-  aiFloatOverlay.setAttribute('aria-hidden', 'true');
-}
-
-closeAiFloat.addEventListener('click', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  closeAiFloatPanel();
-});
-aiFloatOverlay.addEventListener('click', (e) => {
-  if (e.target === aiFloatOverlay) closeAiFloatPanel();
-});
-
-aiFloatSend.addEventListener('click', () => {
-  const q = aiFloatInput.value.trim();
-  if (!q) return;
-  addFloatMessage('user', q);
-  addFloatMessage('ai', replyByPrompt(q));
-  aiFloatInput.value = '';
-});
-
-function makeDraggable(handle, target, mode = 'free') {
-  let dragging = false;
-  let moved = false;
-  let startX = 0;
-  let startY = 0;
-  let baseLeft = 0;
-  let baseTop = 0;
-
-  const onMove = (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-
-    let left = baseLeft + dx;
-    let top = baseTop + dy;
-    const maxLeft = window.innerWidth - target.offsetWidth;
-    const maxTop = window.innerHeight - target.offsetHeight;
-    left = Math.min(Math.max(0, left), Math.max(0, maxLeft));
-    top = Math.min(Math.max(0, top), Math.max(0, maxTop));
-
-    target.style.left = `${left}px`;
-    target.style.top = `${top}px`;
-    target.style.right = 'auto';
-    target.style.bottom = 'auto';
-  };
-
-  const onUp = () => {
-    dragging = false;
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    if (mode === 'button' && !moved) openAiFloat();
-  };
-
-  handle.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.mini-close')) return;
-    dragging = true;
-    moved = false;
-    startX = e.clientX;
-    startY = e.clientY;
-    const rect = target.getBoundingClientRect();
-    baseLeft = rect.left;
-    baseTop = rect.top;
-    target.setPointerCapture?.(e.pointerId);
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
+function openAiJourney() {
+  if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
+  if (journeyCloseTimer) {
+    window.clearTimeout(journeyCloseTimer);
+    journeyCloseTimer = null;
+  }
+  aiFloatBtn?.classList.add('is-hidden');
+  appShell?.classList.add('journey-fade-out');
+  aiJourneyOverlay.classList.remove('is-entering');
+  aiJourneyOverlay.classList.remove('hidden');
+  aiJourneyOverlay.style.display = 'block';
+  aiJourneyOverlay.setAttribute('aria-hidden', 'false');
+  aiGreetingScene.classList.remove('hidden');
+  aiGreetingScene.style.display = 'block';
+  aiGroundScene.classList.add('hidden');
+  aiGroundScene.style.display = 'none';
+  void aiJourneyOverlay.offsetWidth;
+  requestAnimationFrame(() => {
+    aiJourneyOverlay.classList.add('is-entering');
   });
 }
 
-makeDraggable(aiFloatBtn, aiFloatBtn, 'button');
-makeDraggable(aiFloatDrag, aiFloatPanel, 'free');
+function closeAiJourney() {
+  if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
+  if (journeyCloseTimer) {
+    window.clearTimeout(journeyCloseTimer);
+  }
+  aiFloatBtn?.classList.remove('is-hidden');
+  appShell?.classList.remove('journey-fade-out');
+  aiJourneyOverlay.classList.remove('is-entering');
+  aiJourneyOverlay.setAttribute('aria-hidden', 'true');
+  journeyCloseTimer = window.setTimeout(() => {
+    if (aiJourneyOverlay.classList.contains('is-entering')) return;
+    aiJourneyOverlay.classList.add('hidden');
+    aiJourneyOverlay.style.display = 'none';
+    journeyCloseTimer = null;
+  }, JOURNEY_FADE_IN_MS);
+  aiGreetingScene.classList.remove('hidden');
+  aiGreetingScene.style.display = 'block';
+  aiGroundScene.classList.add('hidden');
+  aiGroundScene.style.display = 'none';
+}
+
+function showGroundScene() {
+  if (!aiGreetingScene || !aiGroundScene) return;
+  aiGreetingScene.classList.add('hidden');
+  aiGreetingScene.style.display = 'none';
+  aiGroundScene.classList.remove('hidden');
+  aiGroundScene.style.display = 'block';
+}
+
+['click', 'pointerup', 'touchend'].forEach((eventName) => {
+  aiFloatBtn?.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    openAiJourney();
+  });
+});
+closeGreetingScene?.addEventListener('click', closeAiJourney);
+exitBtn?.addEventListener('click', closeAiJourney);
+readyBtn?.addEventListener('click', showGroundScene);
+backHomeBtn?.addEventListener('click', closeAiJourney);
+
+aiJourneyOverlay?.addEventListener('click', (e) => {
+  if (e.target === aiJourneyOverlay) closeAiJourney();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && aiJourneyOverlay && !aiJourneyOverlay.classList.contains('hidden')) {
+    closeAiJourney();
+  }
+});
 
 function init() {
   ensureUserModel();
@@ -879,8 +945,9 @@ function init() {
   renderCalendar();
   renderCareText();
   renderList('knowledgeList', knowledgeData, '健康知识');
-  renderList('sportsList', sportsData, '体育资讯');
-  renderNearby(geoVideos.default);
+  renderSportsCards();
+  renderVideoCards();
+  openVideoDetail(videoItems[0].id);
   initTherapyFilters();
   renderTherapistsByRegion();
   renderShop('全部');
