@@ -494,6 +494,13 @@ async function openFollowTrainingPage() {
   }, 700);
 }
 
+async function askAndOpenFollowTraining() {
+  const join = window.confirm('是否开启“视频跟练 + 摄像头实时纠正”？开启后会进入跟练页面：左侧播放教学视频，右侧通过动作捕捉实时提示你调整姿势。');
+  if (!join) return false;
+  await openFollowTrainingPage();
+  return true;
+}
+
 function renderPosts() {
   const list = document.getElementById('postList');
   const posts = userBucket().posts;
@@ -757,14 +764,20 @@ document.getElementById('videoFavBtn')?.addEventListener('click', () => {
 
 document.getElementById('videoBackBtn')?.addEventListener('click', closeVideoDetail);
 
+document.getElementById('startFollowTrainingBtn')?.addEventListener('click', async () => {
+  const detailPlayer = document.getElementById('rehabVideo');
+  detailPlayer?.pause();
+  followPromptShown = true;
+  await askAndOpenFollowTraining();
+});
+
 document.getElementById('rehabVideo')?.addEventListener('play', async (e) => {
   if (followPromptShown) return;
   followPromptShown = true;
   const player = e.currentTarget;
-  const join = window.confirm('是否开启“视频跟练 + 摄像头实时纠正”？开启后会进入跟练页面：左侧播放教学视频，右侧通过动作捕捉实时提示你调整姿势。');
-  if (!join) return;
+  const joined = await askAndOpenFollowTraining();
+  if (!joined) return;
   player.pause();
-  await openFollowTrainingPage();
 });
 
 document.getElementById('followTrainingBackBtn')?.addEventListener('click', () => {
