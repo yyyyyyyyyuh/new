@@ -93,6 +93,9 @@ let detectRafId = null;
 let poseLandmarker = null;
 let visionFileset = null;
 let detectionRunning = false;
+let detectionBackend = '';
+let legacyPose = null;
+let legacyLandmarks = null;
 const defaultPlans = [
   ['晨间拉伸', '15分钟', '呼吸与上肢放松'],
   ['核心稳定', '20分钟', '坐姿平衡训练'],
@@ -386,6 +389,7 @@ function formatClock(ms) {
 
 function stopCameraStream() {
   detectionRunning = false;
+  detectionBackend = '';
   if (detectRafId) {
     window.cancelAnimationFrame(detectRafId);
     detectRafId = null;
@@ -394,6 +398,11 @@ function stopCameraStream() {
     poseLandmarker.close();
     poseLandmarker = null;
   }
+  if (legacyPose?.close) {
+    legacyPose.close();
+    legacyPose = null;
+  }
+  legacyLandmarks = null;
   if (cameraStream) {
     cameraStream.getTracks().forEach((t) => t.stop());
     cameraStream = null;
@@ -485,6 +494,23 @@ async function initPoseLandmarker() {
   return true;
 }
 
+async function initLegacyPose() {
+  if (!window.Pose) return false;
+  legacyPose = new window.Pose({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+  });
+  legacyPose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+  legacyPose.onResults((results) => {
+    legacyLandmarks = results.poseLandmarks || null;
+  });
+  return true;
+}
+
 async function openFollowTrainingPage() {
   const item = videoItems.find((x) => x.id === activeVideoId) || videoItems[0];
   const followTitle = document.getElementById('followTrainingTitle');
@@ -522,33 +548,57 @@ async function openFollowTrainingPage() {
       cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
       postureCamera.srcObject = cameraStream;
       await postureCamera.play();
-      const ready = await initPoseLandmarker();
-      if (!ready) throw new Error('landmarker-unavailable');
+      const landmarkerReady = await initPoseLandmarker();
+      if (landmarkerReady) {
+        detectionBackend = 'landmarker';
+      } else {
+        const legacyReady = await initLegacyPose();
+        if (!legacyReady) throw new Error('no-pose-engine');
+        detectionBackend = 'legacy';
+      }
       detectionRunning = true;
-      poseEngineStatus.textContent = '识别状态：Pose Landmarker 运行中';
+      poseEngineStatus.textContent = detectionBackend === 'landmarker'
+        ? '识别状态：Pose Landmarker 运行中'
+        : '识别状态：已切换到 MediaPipe Pose 兼容模式';
       currentPoseState.textContent = '当前动作状态：检测中（等待标准靠墙下蹲）';
     } catch (err) {
-      poseEngineStatus.textContent = '识别状态：启动失败，请检查摄像头权限或网络后重试';
-      correctionList.innerHTML = '<li>无法启动动作检测，请允许摄像头权限并重试。</li>';
+      const reason = err?.name === 'NotAllowedError'
+        ? '摄像头权限被拒绝'
+        : err?.name === 'NotFoundError'
+          ? '未找到可用摄像头'
+          : '模型加载失败或网络受限';
+      poseEngineStatus.textContent = `识别状态：启动失败（${reason}）`;
+      correctionList.innerHTML = '<li>无法启动动作检测：请允许摄像头权限，并通过 https 或 localhost 打开页面后重试。</li>';
       return;
     }
 
     const ctx = poseCanvas.getContext('2d');
-    const drawLoop = () => {
-      if (!detectionRunning || !cameraStream || !poseLandmarker || !ctx) return;
+    const drawLoop = async () => {
+      if (!detectionRunning || !cameraStream || !ctx) return;
       const vw = postureCamera.videoWidth || 640;
       const vh = postureCamera.videoHeight || 480;
       poseCanvas.width = vw;
       poseCanvas.height = vh;
-      const nowMs = performance.now();
-      const result = poseLandmarker.detectForVideo(postureCamera, nowMs);
+      let landmarks = null;
+      if (detectionBackend === 'landmarker' && poseLandmarker) {
+        const nowMs = performance.now();
+        const result = poseLandmarker.detectForVideo(postureCamera, nowMs);
+        landmarks = result?.landmarks?.[0] || null;
+      } else if (detectionBackend === 'legacy' && legacyPose) {
+        await legacyPose.send({ image: postureCamera });
+        landmarks = legacyLandmarks;
+      }
       ctx.clearRect(0, 0, vw, vh);
       const t = followVideo.currentTime || 0;
       let hints = [];
 
-      if (result?.landmarks?.[0]) {
-        const lm = result.landmarks[0];
-        const conns = window.vision.PoseLandmarker.POSE_CONNECTIONS || [];
+      if (landmarks) {
+        const lm = landmarks;
+        const conns = window.vision?.PoseLandmarker?.POSE_CONNECTIONS || [
+          { start: 11, end: 13 }, { start: 13, end: 15 }, { start: 12, end: 14 }, { start: 14, end: 16 },
+          { start: 11, end: 12 }, { start: 11, end: 23 }, { start: 12, end: 24 }, { start: 23, end: 24 },
+          { start: 23, end: 25 }, { start: 24, end: 26 }, { start: 25, end: 27 }, { start: 26, end: 28 },
+        ];
         ctx.strokeStyle = '#00e5ff';
         ctx.lineWidth = 2;
         conns.forEach((c) => {
@@ -600,10 +650,10 @@ async function openFollowTrainingPage() {
       }
 
       correctionList.innerHTML = hints.map((h) => `<li>${h}</li>`).join('');
-      detectRafId = window.requestAnimationFrame(drawLoop);
+      detectRafId = window.requestAnimationFrame(() => { drawLoop(); });
     };
 
-    detectRafId = window.requestAnimationFrame(drawLoop);
+    detectRafId = window.requestAnimationFrame(() => { drawLoop(); });
   };
 }
 
