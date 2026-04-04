@@ -216,6 +216,18 @@ h3 { margin: 0 0 8px; }
   object-fit: cover;
 }
 
+.camera-stage {
+  position: relative;
+}
+
+#poseCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .follow-status-grid {
   display: grid;
   gap: 6px;

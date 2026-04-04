@@ -137,8 +137,15 @@
             </article>
             <article class="card inset follow-camera-pane">
               <h3>动作捕捉与纠错</h3>
-              <video id="postureCamera" autoplay muted playsinline></video>
+              <div class="camera-stage">
+                <video id="postureCamera" autoplay muted playsinline></video>
+                <canvas id="poseCanvas"></canvas>
+              </div>
+              <div class="comment-row">
+                <button id="startDetectBtn" class="pill-btn">开始检测</button>
+              </div>
               <div class="follow-status-grid">
+                <p id="currentPoseState" class="notice">当前动作状态：未开始检测</p>
                 <p id="actionHint" class="notice">动作提示：等待进入“靠墙静蹲”阶段…</p>
                 <p id="squatTimerText" class="notice">靠墙静蹲计时：00:00</p>
                 <p id="poseEngineStatus" class="notice">识别状态：待启动摄像头</p>
@@ -303,8 +310,7 @@
       </section>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest"></script>
     <script src="script.js"></script>
   </body>
 </html>

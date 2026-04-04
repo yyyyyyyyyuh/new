@@ -87,14 +87,12 @@ const videoItems = [
 let activeVideoId = videoItems[0].id;
 let followPromptShown = false;
 let cameraStream = null;
-let postureTimer = null;
-let postureReadyAt = null;
 let squatStartAt = null;
-let poseLoopTimer = null;
-let faceDetector = null;
-let mpPose = null;
-let mpCameraController = null;
-let latestPoseLandmarks = null;
+let accumulatedHoldMs = 0;
+let detectRafId = null;
+let poseLandmarker = null;
+let visionFileset = null;
+let detectionRunning = false;
 const defaultPlans = [
   ['晨间拉伸', '15分钟', '呼吸与上肢放松'],
   ['核心稳定', '20分钟', '坐姿平衡训练'],
@@ -386,27 +384,26 @@ function formatClock(ms) {
   return `${mm}:${ss}`;
 }
 
-function stopPoseLoop() {
-  if (poseLoopTimer) {
-    window.clearInterval(poseLoopTimer);
-    poseLoopTimer = null;
-  }
-}
-
 function stopCameraStream() {
-  stopPoseLoop();
-  if (mpCameraController?.stop) {
-    mpCameraController.stop();
-    mpCameraController = null;
+  detectionRunning = false;
+  if (detectRafId) {
+    window.cancelAnimationFrame(detectRafId);
+    detectRafId = null;
   }
-  if (mpPose?.close) {
-    mpPose.close();
-    mpPose = null;
+  if (poseLandmarker?.close) {
+    poseLandmarker.close();
+    poseLandmarker = null;
   }
-  latestPoseLandmarks = null;
   if (cameraStream) {
     cameraStream.getTracks().forEach((t) => t.stop());
     cameraStream = null;
+  }
+  const cam = document.getElementById('postureCamera');
+  if (cam) cam.srcObject = null;
+  const canvas = document.getElementById('poseCanvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 }
 
@@ -444,47 +441,47 @@ function detectWallSquatCorrections(landmarks) {
 
   const hints = [];
   const trunkOffset = Math.abs(shoulder.x - hip.x);
-  if (trunkOffset > 0.06) hints.push('背部不能离墙太远：请肩背和下背同时贴墙，减少躯干前倾。');
+  if (trunkOffset > 0.065) hints.push('身体前倾过多：背部不能离墙太远，请肩背和下背同时贴墙。');
 
   const hipKneeDelta = Math.abs(hip.y - knee.y);
-  if (hipKneeDelta > 0.08) hints.push('下蹲深度不足：请继续下蹲至大腿与地面尽量平行。');
+  if (hipKneeDelta > 0.085) hints.push('蹲得不够低：请继续下蹲至大腿接近水平。');
 
-  const kneeAngle = calcAngle(hip, knee, ankle);
-  if (kneeAngle < 75 || kneeAngle > 115) hints.push('膝关节角度建议维持在约 90° 附近，避免过深或过浅。');
+  const leftKneeAngle = calcAngle(lHip, lKnee, lAnkle);
+  const rightKneeAngle = calcAngle(rHip, rKnee, rAnkle);
+  if (leftKneeAngle < 80 || leftKneeAngle > 110 || rightKneeAngle < 80 || rightKneeAngle > 110) hints.push('膝角不合适：建议维持在约 90° 附近。');
 
   const pelvisTilt = hip.x - knee.x;
-  if (Math.abs(pelvisTilt) > 0.05) hints.push('尾骨微微内卷，保持骨盆中立，不要塌腰或翘臀。');
+  if (Math.abs(pelvisTilt) > 0.055) hints.push('髋部控制不足：尾骨微微内卷，保持骨盆中立。');
 
-  const trunkLean = Math.abs(shoulder.x - knee.x);
-  if (trunkLean > 0.12) hints.push('请收紧核心，使下背部保持贴住墙面，避免身体前扑。');
+  const leftRightKneeDelta = Math.abs(lKnee.y - rKnee.y);
+  const leftRightHipDelta = Math.abs(lHip.y - rHip.y);
+  if (leftRightKneeDelta > 0.035 || leftRightHipDelta > 0.035) hints.push('左右高低不一致：请保持双侧髋膝同高，均匀受力。');
 
-  if (!hints.length) hints.push('动作标准：保持背部贴墙、膝约90°、尾骨微内卷并均匀呼吸。');
-  return hints;
+  const thighHorizontalGood = hipKneeDelta <= 0.085;
+  const trunkVerticalGood = trunkOffset <= 0.065;
+  const symmetryGood = leftRightKneeDelta <= 0.035 && leftRightHipDelta <= 0.035;
+  const kneeAngleGood = leftKneeAngle >= 80 && leftKneeAngle <= 110 && rightKneeAngle >= 80 && rightKneeAngle <= 110;
+  const standard = thighHorizontalGood && trunkVerticalGood && symmetryGood && kneeAngleGood && Math.abs(pelvisTilt) <= 0.055;
+  return {
+    hints,
+    standard,
+  };
 }
 
-async function initMediaPipePose(postureCamera) {
-  if (!window.Pose || !window.Camera) return false;
-  mpPose = new window.Pose({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
-  });
-  mpPose.setOptions({
-    modelComplexity: 1,
-    smoothLandmarks: true,
-    enableSegmentation: false,
-    minDetectionConfidence: 0.55,
+async function initPoseLandmarker() {
+  if (!window.vision?.PoseLandmarker || !window.vision?.FilesetResolver) return false;
+  if (!visionFileset) {
+    visionFileset = await window.vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm');
+  }
+  poseLandmarker = await window.vision.PoseLandmarker.createFromOptions(visionFileset, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
+    },
+    runningMode: 'VIDEO',
+    numPoses: 1,
+    minPoseDetectionConfidence: 0.55,
     minTrackingConfidence: 0.55,
   });
-  mpPose.onResults((results) => {
-    latestPoseLandmarks = results.poseLandmarks || null;
-  });
-  mpCameraController = new window.Camera(postureCamera, {
-    onFrame: async () => {
-      if (mpPose) await mpPose.send({ image: postureCamera });
-    },
-    width: 640,
-    height: 480,
-  });
-  await mpCameraController.start();
   return true;
 }
 
@@ -496,98 +493,118 @@ async function openFollowTrainingPage() {
   const postureCamera = document.getElementById('postureCamera');
   const poseEngineStatus = document.getElementById('poseEngineStatus');
   const correctionList = document.getElementById('correctionList');
+  const currentPoseState = document.getElementById('currentPoseState');
+  const startDetectBtn = document.getElementById('startDetectBtn');
   const actionHint = document.getElementById('actionHint');
   const squatTimerText = document.getElementById('squatTimerText');
-  if (!followTitle || !followSource || !followVideo || !postureCamera || !poseEngineStatus || !correctionList || !actionHint || !squatTimerText) return;
+  const poseCanvas = document.getElementById('poseCanvas');
+  if (!followTitle || !followSource || !followVideo || !postureCamera || !poseEngineStatus || !correctionList || !currentPoseState || !startDetectBtn || !actionHint || !squatTimerText || !poseCanvas) return;
 
   followTitle.textContent = `${item.title}（跟练模式）`;
   followSource.src = item.src;
   followVideo.load();
   switchTab('followTraining');
 
-  correctionList.innerHTML = '<li>动作建议：请先背靠墙站好，双脚与肩同宽，保持自然呼吸。</li>';
+  correctionList.innerHTML = '<li>动作建议：点击“开始检测”后将开启摄像头并进行骨架识别。</li>';
+  currentPoseState.textContent = '当前动作状态：未开始检测';
   actionHint.textContent = '动作提示：等待视频进入“靠墙静蹲”阶段…';
   squatTimerText.textContent = '靠墙静蹲计时：00:00';
-  poseEngineStatus.textContent = '识别状态：正在申请摄像头权限…';
-  postureReadyAt = null;
+  poseEngineStatus.textContent = '识别状态：待启动摄像头';
+  accumulatedHoldMs = 0;
   squatStartAt = null;
-
-  try {
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported');
-    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
-    postureCamera.srcObject = cameraStream;
-    const mpReady = await initMediaPipePose(postureCamera);
-    poseEngineStatus.textContent = mpReady
-      ? '识别状态：MediaPipe Pose 已启动，正在实时检测靠墙静蹲动作。'
-      : '识别状态：摄像头已连接，MediaPipe 不可用，已使用基础纠错模式。';
-  } catch (err) {
-    poseEngineStatus.textContent = '识别状态：摄像头开启失败，请检查浏览器权限后重试。';
-    correctionList.innerHTML = '<li>未获取到摄像头：无法实时纠错，可先按视频动作练习。</li>';
-    return;
-  }
-
   followVideo.currentTime = 0;
   followVideo.play().catch(() => {});
-
-  if ('FaceDetector' in window) {
-    faceDetector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
-  } else {
-    faceDetector = null;
-  }
-
-  stopPoseLoop();
-  poseLoopTimer = window.setInterval(async () => {
-    if (!cameraStream || followVideo.paused || followVideo.ended) return;
-    const hints = [];
-    const t = followVideo.currentTime || 0;
-
-    if (t >= 20) {
-      actionHint.textContent = '动作提示：靠墙静蹲（保持核心收紧，均匀呼吸）';
-      if (!squatStartAt) squatStartAt = Date.now();
-      squatTimerText.textContent = `靠墙静蹲计时：${formatClock(Date.now() - squatStartAt)}`;
-    } else {
-      actionHint.textContent = '动作提示：准备阶段，20 秒后开始靠墙静蹲';
-      squatTimerText.textContent = '靠墙静蹲计时：00:00';
-      postureReadyAt = null;
+  startDetectBtn.onclick = async () => {
+    if (detectionRunning) return;
+    poseEngineStatus.textContent = '识别状态：正在开启摄像头与 Pose Landmarker...';
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported');
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      postureCamera.srcObject = cameraStream;
+      await postureCamera.play();
+      const ready = await initPoseLandmarker();
+      if (!ready) throw new Error('landmarker-unavailable');
+      detectionRunning = true;
+      poseEngineStatus.textContent = '识别状态：Pose Landmarker 运行中';
+      currentPoseState.textContent = '当前动作状态：检测中（等待标准靠墙下蹲）';
+    } catch (err) {
+      poseEngineStatus.textContent = '识别状态：启动失败，请检查摄像头权限或网络后重试';
+      correctionList.innerHTML = '<li>无法启动动作检测，请允许摄像头权限并重试。</li>';
       return;
     }
 
-    if (latestPoseLandmarks) {
-      const mpHints = detectWallSquatCorrections(latestPoseLandmarks);
-      hints.push(...mpHints);
-    } else if (faceDetector) {
-      try {
-        const faces = await faceDetector.detect(postureCamera);
-        const face = faces?.[0]?.boundingBox;
-        if (!face) {
-          hints.push('请让上半身完整进入画面，方便识别与纠错。');
-        } else {
-          const ratio = face.width / postureCamera.videoWidth;
-          const centerY = (face.y + face.height / 2) / postureCamera.videoHeight;
-          const centerX = (face.x + face.width / 2) / postureCamera.videoWidth;
+    const ctx = poseCanvas.getContext('2d');
+    const drawLoop = () => {
+      if (!detectionRunning || !cameraStream || !poseLandmarker || !ctx) return;
+      const vw = postureCamera.videoWidth || 640;
+      const vh = postureCamera.videoHeight || 480;
+      poseCanvas.width = vw;
+      poseCanvas.height = vh;
+      const nowMs = performance.now();
+      const result = poseLandmarker.detectForVideo(postureCamera, nowMs);
+      ctx.clearRect(0, 0, vw, vh);
+      const t = followVideo.currentTime || 0;
+      let hints = [];
 
-          if (ratio < 0.12) hints.push('背部可能离墙过远，请后背更贴近墙面。');
-          if (centerY < 0.3) hints.push('下蹲深度偏浅，请继续下蹲至大腿与地面接近平行。');
-          if (Math.abs(centerX - 0.5) > 0.12) hints.push('身体有侧偏，尾骨微微内卷，保持骨盆中立。');
-          if (Math.abs(centerY - 0.5) > 0.22) hints.push('请收紧核心，使下背部持续贴住墙面。');
+      if (result?.landmarks?.[0]) {
+        const lm = result.landmarks[0];
+        const conns = window.vision.PoseLandmarker.POSE_CONNECTIONS || [];
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 2;
+        conns.forEach((c) => {
+          const a = lm[c.start];
+          const b = lm[c.end];
+          if (!a || !b) return;
+          ctx.beginPath();
+          ctx.moveTo(a.x * vw, a.y * vh);
+          ctx.lineTo(b.x * vw, b.y * vh);
+          ctx.stroke();
+        });
+        ctx.fillStyle = '#ffca28';
+        lm.forEach((p) => {
+          ctx.beginPath();
+          ctx.arc(p.x * vw, p.y * vh, 3, 0, Math.PI * 2);
+          ctx.fill();
+        });
 
-          if (!hints.length) {
-            if (!postureReadyAt) postureReadyAt = Date.now();
-            if (Date.now() - postureReadyAt > 2200) hints.push('动作质量良好：保持贴墙、平行、核心收紧。');
+        if (t >= 20) {
+          actionHint.textContent = '动作提示：靠墙静蹲（背贴墙、膝约90°、大腿接近水平）';
+          const analysis = detectWallSquatCorrections(lm);
+          if (analysis.standard) {
+            hints = ['动作正确，请保持。'];
+            currentPoseState.textContent = '当前动作状态：标准靠墙静蹲';
+            if (!squatStartAt) squatStartAt = Date.now();
+            const ms = accumulatedHoldMs + (Date.now() - squatStartAt);
+            squatTimerText.textContent = `靠墙静蹲计时：${formatClock(ms)}`;
           } else {
-            postureReadyAt = null;
+            hints = analysis.hints;
+            currentPoseState.textContent = '当前动作状态：姿势待调整';
+            if (squatStartAt) {
+              accumulatedHoldMs += Date.now() - squatStartAt;
+              squatStartAt = null;
+            }
+            squatTimerText.textContent = `靠墙静蹲计时：${formatClock(accumulatedHoldMs)}`;
           }
+        } else {
+          actionHint.textContent = '动作提示：准备阶段，20 秒后开始靠墙静蹲检测';
+          currentPoseState.textContent = '当前动作状态：准备中';
+          hints = ['请先背靠墙站好，双脚与肩同宽，准备下蹲。'];
+          if (squatStartAt) {
+            accumulatedHoldMs += Date.now() - squatStartAt;
+            squatStartAt = null;
+          }
+          squatTimerText.textContent = `靠墙静蹲计时：${formatClock(accumulatedHoldMs)}`;
         }
-      } catch (err) {
-        hints.push('识别波动：请保持光线充足并稳定站位。');
+      } else {
+        hints = ['未检测到完整人体关键点，请完整进入镜头并保持光线充足。'];
       }
-    } else {
-      hints.push('MediaPipe 未返回稳定关键点，已启用基础纠错提示。');
-      hints.push('背部不能离墙太远；下蹲至大腿与地面平行；尾骨微微内卷；下背部保持贴墙。');
-    }
 
-    correctionList.innerHTML = hints.map((h) => `<li>${h}</li>`).join('');
-  }, 700);
+      correctionList.innerHTML = hints.map((h) => `<li>${h}</li>`).join('');
+      detectRafId = window.requestAnimationFrame(drawLoop);
+    };
+
+    detectRafId = window.requestAnimationFrame(drawLoop);
+  };
 }
 
 async function askAndOpenFollowTraining() {
