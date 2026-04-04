@@ -131,9 +131,6 @@
               <video id="followTrainingVideo" controls width="100%" preload="metadata">
                 <source id="followTrainingSource" src="https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-00on8o/video.mp4" type="video/mp4" />
               </video>
-              <p id="followTrainingPrompt" class="notice">
-                视频到 20 秒会进入“靠墙静蹲”计时，右侧将持续给出动作纠正建议。
-              </p>
             </article>
             <article class="card inset follow-camera-pane">
               <h3>动作捕捉与纠错</h3>
@@ -144,13 +141,15 @@
               <div class="comment-row">
                 <button id="startDetectBtn" class="pill-btn">开始检测</button>
               </div>
-              <div class="follow-status-grid">
-                <p id="currentPoseState" class="notice">当前动作状态：未开始检测</p>
-                <p id="actionHint" class="notice">动作提示：等待进入“靠墙静蹲”阶段…</p>
-                <p id="squatTimerText" class="notice">靠墙静蹲计时：00:00</p>
-                <p id="poseEngineStatus" class="notice">识别状态：待启动摄像头</p>
+              <div class="follow-status-grid pretty">
+                <p id="currentPoseState" class="notice status-pill">当前动作状态：未开始检测</p>
+                <p id="actionHint" class="notice status-pill">动作提示：等待视频进入“靠墙静蹲”阶段…</p>
+                <div class="follow-status-inline">
+                  <p id="squatTimerText" class="notice status-pill">靠墙静蹲计时：00:00</p>
+                  <p id="poseEngineStatus" class="notice status-pill">识别状态：待启动摄像头</p>
+                </div>
               </div>
-              <ul id="correctionList" class="simple-list"></ul>
+              <ul id="correctionList" class="simple-list correction-pretty"></ul>
             </article>
           </div>
         </section>
