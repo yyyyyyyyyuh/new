@@ -92,6 +92,9 @@ let postureReadyAt = null;
 let squatStartAt = null;
 let poseLoopTimer = null;
 let faceDetector = null;
+let mpPose = null;
+let mpCameraController = null;
+let latestPoseLandmarks = null;
 const defaultPlans = [
   ['晨间拉伸', '15分钟', '呼吸与上肢放松'],
   ['核心稳定', '20分钟', '坐姿平衡训练'],
@@ -392,10 +395,97 @@ function stopPoseLoop() {
 
 function stopCameraStream() {
   stopPoseLoop();
+  if (mpCameraController?.stop) {
+    mpCameraController.stop();
+    mpCameraController = null;
+  }
+  if (mpPose?.close) {
+    mpPose.close();
+    mpPose = null;
+  }
+  latestPoseLandmarks = null;
   if (cameraStream) {
     cameraStream.getTracks().forEach((t) => t.stop());
     cameraStream = null;
   }
+}
+
+function calcAngle(a, b, c) {
+  if (!a || !b || !c) return 180;
+  const abx = a.x - b.x;
+  const aby = a.y - b.y;
+  const cbx = c.x - b.x;
+  const cby = c.y - b.y;
+  const dot = abx * cbx + aby * cby;
+  const mag1 = Math.hypot(abx, aby);
+  const mag2 = Math.hypot(cbx, cby);
+  if (!mag1 || !mag2) return 180;
+  const cos = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
+  return (Math.acos(cos) * 180) / Math.PI;
+}
+
+function detectWallSquatCorrections(landmarks) {
+  const lShoulder = landmarks[11];
+  const rShoulder = landmarks[12];
+  const lHip = landmarks[23];
+  const rHip = landmarks[24];
+  const lKnee = landmarks[25];
+  const rKnee = landmarks[26];
+  const lAnkle = landmarks[27];
+  const rAnkle = landmarks[28];
+  if (!lShoulder || !rShoulder || !lHip || !rHip || !lKnee || !rKnee || !lAnkle || !rAnkle) {
+    return ['识别到的人体关键点不足，请完整进入画面。'];
+  }
+
+  const shoulder = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + rShoulder.y) / 2 };
+  const hip = { x: (lHip.x + rHip.x) / 2, y: (lHip.y + rHip.y) / 2 };
+  const knee = { x: (lKnee.x + rKnee.x) / 2, y: (lKnee.y + rKnee.y) / 2 };
+  const ankle = { x: (lAnkle.x + rAnkle.x) / 2, y: (lAnkle.y + rAnkle.y) / 2 };
+
+  const hints = [];
+  const trunkOffset = Math.abs(shoulder.x - hip.x);
+  if (trunkOffset > 0.06) hints.push('背部不能离墙太远：请肩背和下背同时贴墙，减少躯干前倾。');
+
+  const hipKneeDelta = Math.abs(hip.y - knee.y);
+  if (hipKneeDelta > 0.08) hints.push('下蹲深度不足：请继续下蹲至大腿与地面尽量平行。');
+
+  const kneeAngle = calcAngle(hip, knee, ankle);
+  if (kneeAngle < 75 || kneeAngle > 115) hints.push('膝关节角度建议维持在约 90° 附近，避免过深或过浅。');
+
+  const pelvisTilt = hip.x - knee.x;
+  if (Math.abs(pelvisTilt) > 0.05) hints.push('尾骨微微内卷，保持骨盆中立，不要塌腰或翘臀。');
+
+  const trunkLean = Math.abs(shoulder.x - knee.x);
+  if (trunkLean > 0.12) hints.push('请收紧核心，使下背部保持贴住墙面，避免身体前扑。');
+
+  if (!hints.length) hints.push('动作标准：保持背部贴墙、膝约90°、尾骨微内卷并均匀呼吸。');
+  return hints;
+}
+
+async function initMediaPipePose(postureCamera) {
+  if (!window.Pose || !window.Camera) return false;
+  mpPose = new window.Pose({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+  });
+  mpPose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.55,
+    minTrackingConfidence: 0.55,
+  });
+  mpPose.onResults((results) => {
+    latestPoseLandmarks = results.poseLandmarks || null;
+  });
+  mpCameraController = new window.Camera(postureCamera, {
+    onFrame: async () => {
+      if (mpPose) await mpPose.send({ image: postureCamera });
+    },
+    width: 640,
+    height: 480,
+  });
+  await mpCameraController.start();
+  return true;
 }
 
 async function openFollowTrainingPage() {
@@ -426,7 +516,10 @@ async function openFollowTrainingPage() {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported');
     cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
     postureCamera.srcObject = cameraStream;
-    poseEngineStatus.textContent = '识别状态：摄像头已连接，准备实时纠错。';
+    const mpReady = await initMediaPipePose(postureCamera);
+    poseEngineStatus.textContent = mpReady
+      ? '识别状态：MediaPipe Pose 已启动，正在实时检测靠墙静蹲动作。'
+      : '识别状态：摄像头已连接，MediaPipe 不可用，已使用基础纠错模式。';
   } catch (err) {
     poseEngineStatus.textContent = '识别状态：摄像头开启失败，请检查浏览器权限后重试。';
     correctionList.innerHTML = '<li>未获取到摄像头：无法实时纠错，可先按视频动作练习。</li>';
@@ -459,7 +552,10 @@ async function openFollowTrainingPage() {
       return;
     }
 
-    if (faceDetector) {
+    if (latestPoseLandmarks) {
+      const mpHints = detectWallSquatCorrections(latestPoseLandmarks);
+      hints.push(...mpHints);
+    } else if (faceDetector) {
       try {
         const faces = await faceDetector.detect(postureCamera);
         const face = faces?.[0]?.boundingBox;
@@ -486,7 +582,7 @@ async function openFollowTrainingPage() {
         hints.push('识别波动：请保持光线充足并稳定站位。');
       }
     } else {
-      hints.push('当前设备不支持高级骨架识别，已启用基础纠错提示。');
+      hints.push('MediaPipe 未返回稳定关键点，已启用基础纠错提示。');
       hints.push('背部不能离墙太远；下蹲至大腿与地面平行；尾骨微微内卷；下背部保持贴墙。');
     }
 
