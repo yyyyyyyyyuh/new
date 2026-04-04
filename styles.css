@@ -193,6 +193,38 @@ h3 { margin: 0 0 8px; }
   margin: 0 0 8px;
 }
 
+.follow-training-layout {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 14px;
+}
+
+.follow-video-pane,
+.follow-camera-pane {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+#postureCamera {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #181818;
+  min-height: 260px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.follow-status-grid {
+  display: grid;
+  gap: 6px;
+}
+
+#correctionList {
+  margin-top: 6px;
+}
+
 .assistant-box { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
 .ai-response { margin-top: 10px; color: #464342; line-height: 1.6; }
 
@@ -223,6 +255,7 @@ h3 { margin: 0 0 8px; }
   .grid-home { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: flex-start; height: auto; }
   .video-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .follow-training-layout { grid-template-columns: 1fr; }
 }
 
 .ai-float-girl {

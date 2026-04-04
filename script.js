@@ -85,6 +85,13 @@ const videoItems = [
   },
 ];
 let activeVideoId = videoItems[0].id;
+let followPromptShown = false;
+let cameraStream = null;
+let postureTimer = null;
+let postureReadyAt = null;
+let squatStartAt = null;
+let poseLoopTimer = null;
+let faceDetector = null;
 const defaultPlans = [
   ['晨间拉伸', '15分钟', '呼吸与上肢放松'],
   ['核心稳定', '20分钟', '坐姿平衡训练'],
@@ -214,6 +221,11 @@ function currentUser() {
 }
 
 function switchTab(tabId) {
+  if (tabId !== 'followTraining') {
+    const followVideo = document.getElementById('followTrainingVideo');
+    if (followVideo && !followVideo.paused) followVideo.pause();
+    stopCameraStream();
+  }
   tabs.forEach((b) => b.classList.toggle('active', b.dataset.tab === tabId));
   sections.forEach((s) => s.classList.toggle('active', s.id === tabId));
 }
@@ -349,6 +361,7 @@ function openVideoDetail(videoId) {
   title.textContent = target.title;
   source.src = target.src;
   player.load();
+  followPromptShown = false;
   detail.classList.remove('hidden');
   videosSection?.classList.add('video-detail-mode');
   detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -361,6 +374,124 @@ function closeVideoDetail() {
   if (!videosSection || !detail) return;
   detail.classList.add('hidden');
   videosSection.classList.remove('video-detail-mode');
+}
+
+function formatClock(ms) {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+  const ss = String(sec % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
+function stopPoseLoop() {
+  if (poseLoopTimer) {
+    window.clearInterval(poseLoopTimer);
+    poseLoopTimer = null;
+  }
+}
+
+function stopCameraStream() {
+  stopPoseLoop();
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+}
+
+async function openFollowTrainingPage() {
+  const item = videoItems.find((x) => x.id === activeVideoId) || videoItems[0];
+  const followTitle = document.getElementById('followTrainingTitle');
+  const followSource = document.getElementById('followTrainingSource');
+  const followVideo = document.getElementById('followTrainingVideo');
+  const postureCamera = document.getElementById('postureCamera');
+  const poseEngineStatus = document.getElementById('poseEngineStatus');
+  const correctionList = document.getElementById('correctionList');
+  const actionHint = document.getElementById('actionHint');
+  const squatTimerText = document.getElementById('squatTimerText');
+  if (!followTitle || !followSource || !followVideo || !postureCamera || !poseEngineStatus || !correctionList || !actionHint || !squatTimerText) return;
+
+  followTitle.textContent = `${item.title}（跟练模式）`;
+  followSource.src = item.src;
+  followVideo.load();
+  switchTab('followTraining');
+
+  correctionList.innerHTML = '<li>动作建议：请先背靠墙站好，双脚与肩同宽，保持自然呼吸。</li>';
+  actionHint.textContent = '动作提示：等待视频进入“靠墙静蹲”阶段…';
+  squatTimerText.textContent = '靠墙静蹲计时：00:00';
+  poseEngineStatus.textContent = '识别状态：正在申请摄像头权限…';
+  postureReadyAt = null;
+  squatStartAt = null;
+
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported');
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+    postureCamera.srcObject = cameraStream;
+    poseEngineStatus.textContent = '识别状态：摄像头已连接，准备实时纠错。';
+  } catch (err) {
+    poseEngineStatus.textContent = '识别状态：摄像头开启失败，请检查浏览器权限后重试。';
+    correctionList.innerHTML = '<li>未获取到摄像头：无法实时纠错，可先按视频动作练习。</li>';
+    return;
+  }
+
+  followVideo.currentTime = 0;
+  followVideo.play().catch(() => {});
+
+  if ('FaceDetector' in window) {
+    faceDetector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+  } else {
+    faceDetector = null;
+  }
+
+  stopPoseLoop();
+  poseLoopTimer = window.setInterval(async () => {
+    if (!cameraStream || followVideo.paused || followVideo.ended) return;
+    const hints = [];
+    const t = followVideo.currentTime || 0;
+
+    if (t >= 20) {
+      actionHint.textContent = '动作提示：靠墙静蹲（保持核心收紧，均匀呼吸）';
+      if (!squatStartAt) squatStartAt = Date.now();
+      squatTimerText.textContent = `靠墙静蹲计时：${formatClock(Date.now() - squatStartAt)}`;
+    } else {
+      actionHint.textContent = '动作提示：准备阶段，20 秒后开始靠墙静蹲';
+      squatTimerText.textContent = '靠墙静蹲计时：00:00';
+      postureReadyAt = null;
+      return;
+    }
+
+    if (faceDetector) {
+      try {
+        const faces = await faceDetector.detect(postureCamera);
+        const face = faces?.[0]?.boundingBox;
+        if (!face) {
+          hints.push('请让上半身完整进入画面，方便识别与纠错。');
+        } else {
+          const ratio = face.width / postureCamera.videoWidth;
+          const centerY = (face.y + face.height / 2) / postureCamera.videoHeight;
+          const centerX = (face.x + face.width / 2) / postureCamera.videoWidth;
+
+          if (ratio < 0.12) hints.push('背部可能离墙过远，请后背更贴近墙面。');
+          if (centerY < 0.3) hints.push('下蹲深度偏浅，请继续下蹲至大腿与地面接近平行。');
+          if (Math.abs(centerX - 0.5) > 0.12) hints.push('身体有侧偏，尾骨微微内卷，保持骨盆中立。');
+          if (Math.abs(centerY - 0.5) > 0.22) hints.push('请收紧核心，使下背部持续贴住墙面。');
+
+          if (!hints.length) {
+            if (!postureReadyAt) postureReadyAt = Date.now();
+            if (Date.now() - postureReadyAt > 2200) hints.push('动作质量良好：保持贴墙、平行、核心收紧。');
+          } else {
+            postureReadyAt = null;
+          }
+        }
+      } catch (err) {
+        hints.push('识别波动：请保持光线充足并稳定站位。');
+      }
+    } else {
+      hints.push('当前设备不支持高级骨架识别，已启用基础纠错提示。');
+      hints.push('背部不能离墙太远；下蹲至大腿与地面平行；尾骨微微内卷；下背部保持贴墙。');
+    }
+
+    correctionList.innerHTML = hints.map((h) => `<li>${h}</li>`).join('');
+  }, 700);
 }
 
 function renderPosts() {
@@ -625,6 +756,30 @@ document.getElementById('videoFavBtn')?.addEventListener('click', () => {
 });
 
 document.getElementById('videoBackBtn')?.addEventListener('click', closeVideoDetail);
+
+document.getElementById('rehabVideo')?.addEventListener('play', async (e) => {
+  if (followPromptShown) return;
+  followPromptShown = true;
+  const player = e.currentTarget;
+  const join = window.confirm('是否开启“视频跟练 + 摄像头实时纠正”？开启后会进入跟练页面：左侧播放教学视频，右侧通过动作捕捉实时提示你调整姿势。');
+  if (!join) return;
+  player.pause();
+  await openFollowTrainingPage();
+});
+
+document.getElementById('followTrainingBackBtn')?.addEventListener('click', () => {
+  const followVideo = document.getElementById('followTrainingVideo');
+  if (followVideo) {
+    followVideo.pause();
+    followVideo.currentTime = 0;
+  }
+  stopCameraStream();
+  switchTab('videos');
+});
+
+document.getElementById('followTrainingVideo')?.addEventListener('ended', () => {
+  document.getElementById('actionHint').textContent = '动作提示：本次跟练结束，建议放松股四头肌与臀部。';
+});
 
 document.getElementById('videoCommentBtn')?.addEventListener('click', () => {
   const input = document.getElementById('videoCommentInput');
