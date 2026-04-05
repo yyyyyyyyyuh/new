@@ -50,8 +50,8 @@ const videoItems = [
   },
   {
     id: 'v2',
-    title: '居家核心稳定训练：5个动作激活深层肌群',
-    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    title: '开合跳跟练：video1',
+    src: 'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-931aui/video1.mp4',
     cover: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=900&auto=format&fit=crop',
     duration: '03:14',
   },
@@ -96,6 +96,8 @@ let detectionRunning = false;
 let detectionBackend = '';
 let legacyPose = null;
 let legacyLandmarks = null;
+let jumpJackCount = 0;
+let jumpJackPhase = 'idle';
 const defaultPlans = [
   ['晨间拉伸', '15分钟', '呼吸与上肢放松'],
   ['核心稳定', '20分钟', '坐姿平衡训练'],
@@ -513,6 +515,7 @@ async function initLegacyPose() {
 
 async function openFollowTrainingPage() {
   const item = videoItems.find((x) => x.id === activeVideoId) || videoItems[0];
+  const exerciseMode = item.id === 'v2' ? 'jumpingJack' : 'wallSquat';
   const followTitle = document.getElementById('followTrainingTitle');
   const followSource = document.getElementById('followTrainingSource');
   const followVideo = document.getElementById('followTrainingVideo');
@@ -533,11 +536,15 @@ async function openFollowTrainingPage() {
 
   correctionList.innerHTML = '<li>动作建议：点击“开始检测”后将开启摄像头并进行骨架识别。</li>';
   currentPoseState.textContent = '当前动作状态：未开始检测';
-  actionHint.textContent = '动作提示：等待视频进入“靠墙静蹲”阶段…';
-  squatTimerText.textContent = '靠墙静蹲计时：00:00';
+  actionHint.textContent = exerciseMode === 'jumpingJack'
+    ? '动作提示：开合跳检测将随视频播放立即开始'
+    : '动作提示：等待视频进入“靠墙静蹲”阶段…';
+  squatTimerText.textContent = exerciseMode === 'jumpingJack' ? '开合跳计数：0 次' : '靠墙静蹲计时：00:00';
   poseEngineStatus.textContent = '识别状态：待启动摄像头';
   accumulatedHoldMs = 0;
   squatStartAt = null;
+  jumpJackCount = 0;
+  jumpJackPhase = 'idle';
   followVideo.currentTime = 0;
   followVideo.play().catch(() => {});
   startDetectBtn.onclick = async () => {
@@ -560,7 +567,9 @@ async function openFollowTrainingPage() {
       poseEngineStatus.textContent = detectionBackend === 'landmarker'
         ? '识别状态：Pose Landmarker 运行中'
         : '识别状态：已切换到 MediaPipe Pose 兼容模式';
-      currentPoseState.textContent = '当前动作状态：检测中（等待标准靠墙下蹲）';
+      currentPoseState.textContent = exerciseMode === 'jumpingJack'
+        ? '当前动作状态：检测中（开合跳）'
+        : '当前动作状态：检测中（等待标准靠墙下蹲）';
     } catch (err) {
       const reason = err?.name === 'NotAllowedError'
         ? '摄像头权限被拒绝'
@@ -617,7 +626,48 @@ async function openFollowTrainingPage() {
           ctx.fill();
         });
 
-        if (t >= 20) {
+        if (exerciseMode === 'jumpingJack') {
+          const lWrist = lm[15];
+          const rWrist = lm[16];
+          const lShoulder = lm[11];
+          const rShoulder = lm[12];
+          const lAnkle = lm[27];
+          const rAnkle = lm[28];
+          const lHip = lm[23];
+          const rHip = lm[24];
+          if (lWrist && rWrist && lShoulder && rShoulder && lAnkle && rAnkle && lHip && rHip) {
+            const armsUp = lWrist.y < lShoulder.y && rWrist.y < rShoulder.y;
+            const shoulderDist = Math.abs(lShoulder.x - rShoulder.x);
+            const ankleDist = Math.abs(lAnkle.x - rAnkle.x);
+            const legsApart = ankleDist > shoulderDist * 1.35;
+            const legsClosed = ankleDist < shoulderDist * 1.1;
+            const torsoStable = Math.abs(((lHip.x + rHip.x) / 2) - ((lShoulder.x + rShoulder.x) / 2)) < 0.1;
+            const openPose = armsUp && legsApart;
+            const closePose = !armsUp && legsClosed;
+
+            actionHint.textContent = '动作提示：开合跳（双手过头，双脚开合有节奏）';
+            if (openPose) {
+              currentPoseState.textContent = '当前动作状态：开合姿态';
+              jumpJackPhase = 'open';
+              hints.push('动作正确，请保持节奏。');
+            } else if (closePose) {
+              currentPoseState.textContent = '当前动作状态：并拢姿态';
+              if (jumpJackPhase === 'open') {
+                jumpJackCount += 1;
+              }
+              jumpJackPhase = 'closed';
+            } else {
+              currentPoseState.textContent = '当前动作状态：姿势待调整';
+            }
+
+            if (!armsUp) hints.push('手臂抬过头顶后再并拢。');
+            if (!legsApart && !legsClosed) hints.push('双脚开合幅度再明显一些。');
+            if (!torsoStable) hints.push('躯干保持稳定，避免左右晃动。');
+            squatTimerText.textContent = `开合跳计数：${jumpJackCount} 次`;
+          } else {
+            hints = ['请完整进入画面以进行开合跳检测。'];
+          }
+        } else if (t >= 20) {
           actionHint.textContent = '动作提示：靠墙静蹲（背贴墙、膝约90°、大腿接近水平）';
           const analysis = detectWallSquatCorrections(lm);
           if (analysis.standard) {
