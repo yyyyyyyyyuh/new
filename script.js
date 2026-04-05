@@ -84,6 +84,11 @@ const videoItems = [
     duration: '02:48',
   },
 ];
+const video2Override = {
+  title: 'video1.mp4 开合跳跟练',
+  src: 'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-931aui/video1.mp4',
+  duration: '00:53',
+};
 let activeVideoId = videoItems[0].id;
 let followPromptShown = false;
 let cameraStream = null;
@@ -343,7 +348,10 @@ function renderVideoCards() {
   const grid = document.getElementById('videoCardGrid');
   if (!grid) return;
   grid.innerHTML = videoItems
-    .map((item) => `<article class="video-tile" data-video-id="${item.id}"><img src="${item.cover}" alt="${item.title}"/><div class="video-tile-body"><h4>${item.title}</h4><p>${item.duration}</p></div></article>`)
+    .map((item) => {
+      const view = item.id === 'v2' ? { ...item, ...video2Override } : item;
+      return `<article class="video-tile" data-video-id="${view.id}"><img src="${view.cover}" alt="${view.title}"/><div class="video-tile-body"><h4>${view.title}</h4><p>${view.duration}</p></div></article>`;
+    })
     .join('');
 }
 
@@ -363,9 +371,10 @@ function openVideoDetail(videoId) {
   const player = document.getElementById('rehabVideo');
   if (!detail || !title || !source || !player) return;
   const target = videoItems.find((x) => x.id === videoId) || videoItems[0];
+  const view = target.id === 'v2' ? { ...target, ...video2Override } : target;
   activeVideoId = target.id;
-  title.textContent = target.title;
-  source.src = target.src;
+  title.textContent = view.title;
+  source.src = view.src;
   player.load();
   followPromptShown = false;
   detail.classList.remove('hidden');
@@ -515,6 +524,7 @@ async function initLegacyPose() {
 
 async function openFollowTrainingPage() {
   const item = videoItems.find((x) => x.id === activeVideoId) || videoItems[0];
+  const followItem = item.id === 'v2' ? { ...item, ...video2Override } : item;
   const exerciseMode = item.id === 'v2' ? 'jumpingJack' : 'wallSquat';
   const followTitle = document.getElementById('followTrainingTitle');
   const followSource = document.getElementById('followTrainingSource');
@@ -529,8 +539,8 @@ async function openFollowTrainingPage() {
   const poseCanvas = document.getElementById('poseCanvas');
   if (!followTitle || !followSource || !followVideo || !postureCamera || !poseEngineStatus || !correctionList || !currentPoseState || !startDetectBtn || !actionHint || !squatTimerText || !poseCanvas) return;
 
-  followTitle.textContent = `${item.title}（跟练模式）`;
-  followSource.src = item.src;
+  followTitle.textContent = `${followItem.title}（跟练模式）`;
+  followSource.src = followItem.src;
   followVideo.load();
   switchTab('followTraining');
 
