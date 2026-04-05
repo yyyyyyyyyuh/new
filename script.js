@@ -93,10 +93,12 @@ const videoSourceCandidates = {
   v1: [
     'https://yyyyyyyyyuh.github.io/new/video.mp4',
     'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-00on8o/video.mp4',
+    'https://www.w3schools.com/html/mov_bbb.mp4',
   ],
   v2: [
     'https://yyyyyyyyyuh.github.io/new/video1.mp4',
     'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-931aui/video1.mp4',
+    'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
   ],
 };
 let activeVideoId = videoItems[0].id;
@@ -380,15 +382,33 @@ function renderVideoComments() {
 function loadVideoWithFallback(player, sourceEl, videoId) {
   const list = videoSourceCandidates[videoId] || [sourceEl.src];
   let idx = 0;
-  const tryLoad = () => {
-    sourceEl.src = list[idx];
-    player.load();
+  let resolved = false;
+  let probeTimer = null;
+  const clearProbe = () => {
+    if (probeTimer) {
+      window.clearTimeout(probeTimer);
+      probeTimer = null;
+    }
   };
-  player.onerror = () => {
+  const advance = () => {
+    if (resolved) return;
     if (idx < list.length - 1) {
       idx += 1;
       tryLoad();
     }
+  };
+  const tryLoad = () => {
+    clearProbe();
+    sourceEl.src = list[idx];
+    player.load();
+    probeTimer = window.setTimeout(() => {
+      if (!resolved && player.readyState < 2) advance();
+    }, 2600);
+  };
+  player.onerror = advance;
+  player.onloadeddata = () => {
+    resolved = true;
+    clearProbe();
   };
   tryLoad();
 }
