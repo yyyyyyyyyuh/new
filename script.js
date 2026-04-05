@@ -571,18 +571,21 @@ function analyzeJumpingJack(landmarks) {
   const torsoTiltRaw = Math.abs(((lShoulder.x + rShoulder.x) / 2) - ((lHip.x + rHip.x) / 2)) / shoulderWidth;
 
   jumpJackSmooth = jumpJackSmooth || {};
-  jumpJackSmooth.ankleNorm = smoothMetric(jumpJackSmooth.ankleNorm, ankleNormRaw);
-  jumpJackSmooth.leftRaise = smoothMetric(jumpJackSmooth.leftRaise, leftRaiseRaw);
-  jumpJackSmooth.rightRaise = smoothMetric(jumpJackSmooth.rightRaise, rightRaiseRaw);
-  jumpJackSmooth.armSync = smoothMetric(jumpJackSmooth.armSync, armSyncRaw);
-  jumpJackSmooth.kneeSync = smoothMetric(jumpJackSmooth.kneeSync, kneeSyncRaw);
-  jumpJackSmooth.hipSync = smoothMetric(jumpJackSmooth.hipSync, hipSyncRaw);
-  jumpJackSmooth.torsoTilt = smoothMetric(jumpJackSmooth.torsoTilt, torsoTiltRaw);
+  // 开合跳计数需要比静蹲更灵敏，这里提高平滑更新速度，减少“动作到了却不计数”的滞后。
+  const jumpAlpha = 0.52;
+  jumpJackSmooth.ankleNorm = smoothMetric(jumpJackSmooth.ankleNorm, ankleNormRaw, jumpAlpha);
+  jumpJackSmooth.leftRaise = smoothMetric(jumpJackSmooth.leftRaise, leftRaiseRaw, jumpAlpha);
+  jumpJackSmooth.rightRaise = smoothMetric(jumpJackSmooth.rightRaise, rightRaiseRaw, jumpAlpha);
+  jumpJackSmooth.armSync = smoothMetric(jumpJackSmooth.armSync, armSyncRaw, jumpAlpha);
+  jumpJackSmooth.kneeSync = smoothMetric(jumpJackSmooth.kneeSync, kneeSyncRaw, jumpAlpha);
+  jumpJackSmooth.hipSync = smoothMetric(jumpJackSmooth.hipSync, hipSyncRaw, jumpAlpha);
+  jumpJackSmooth.torsoTilt = smoothMetric(jumpJackSmooth.torsoTilt, torsoTiltRaw, jumpAlpha);
 
   const metrics = jumpJackSmooth;
-  const openCond = metrics.ankleNorm > 2.0 && metrics.leftRaise > 0.35 && metrics.rightRaise > 0.35 && metrics.armSync < 0.28 && metrics.torsoTilt < 0.26;
-  const closeCond = metrics.ankleNorm < 1.35 && metrics.leftRaise < -0.1 && metrics.rightRaise < -0.1 && metrics.torsoTilt < 0.26;
-  const synced = metrics.armSync < 0.28 && metrics.kneeSync < 0.32 && metrics.hipSync < 0.26;
+  // 略微放宽阈值：保持“完整开合”要求，同时提升计数灵敏度。
+  const openCond = metrics.ankleNorm > 1.7 && metrics.leftRaise > 0.22 && metrics.rightRaise > 0.22 && metrics.armSync < 0.34 && metrics.torsoTilt < 0.3;
+  const closeCond = metrics.ankleNorm < 1.48 && metrics.leftRaise < 0.02 && metrics.rightRaise < 0.02 && metrics.torsoTilt < 0.3;
+  const synced = metrics.armSync < 0.34 && metrics.kneeSync < 0.38 && metrics.hipSync < 0.3;
 
   return { metrics, openCond, closeCond, synced };
 }
@@ -764,7 +767,7 @@ async function openFollowTrainingPage() {
 
             if (jumpJackState === 'ready') {
               currentPoseState.textContent = '当前动作状态：准备阶段（先回到合拢）';
-              if (jumpCloseStableFrames >= 4) {
+              if (jumpCloseStableFrames >= 3) {
                 jumpJackState = 'closed_ready';
                 jumpStateFrameAge = 0;
               } else {
@@ -772,13 +775,13 @@ async function openFollowTrainingPage() {
               }
             } else if (jumpJackState === 'closed_ready') {
               currentPoseState.textContent = '当前动作状态：合拢姿态';
-              if (jumpOpenStableFrames >= 3) {
+              if (jumpOpenStableFrames >= 2) {
                 jumpJackState = 'opened';
                 jumpStateFrameAge = 0;
               }
             } else if (jumpJackState === 'opened') {
               currentPoseState.textContent = '当前动作状态：张开姿态';
-              if (jumpCloseStableFrames >= 3) {
+              if (jumpCloseStableFrames >= 2) {
                 jumpJackCount += 1;
                 jumpJackState = 'closed_ready';
                 jumpStateFrameAge = 0;
@@ -788,10 +791,10 @@ async function openFollowTrainingPage() {
               }
             }
 
-            if (metrics.leftRaise < 0.35 || metrics.rightRaise < 0.35) hints.push('手臂抬高一点。');
-            if (metrics.ankleNorm < 2.0 && jumpJackState !== 'ready') hints.push('双脚再打开一点。');
+            if (metrics.leftRaise < 0.22 || metrics.rightRaise < 0.22) hints.push('手臂抬高一点。');
+            if (metrics.ankleNorm < 1.7 && jumpJackState !== 'ready') hints.push('双脚再打开一点。');
             if (!synced) hints.push('注意左右同步。');
-            if (metrics.torsoTilt > 0.26) hints.push('保持身体稳定。');
+            if (metrics.torsoTilt > 0.3) hints.push('保持身体稳定。');
             if (!hints.length && jumpJackState !== 'ready') hints.push('动作正确，请保持。');
 
             squatTimerText.textContent = `开合跳计数：${jumpJackCount} 次`;
