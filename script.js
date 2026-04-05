@@ -45,14 +45,14 @@ const videoItems = [
     id: 'v1',
     title: '健身60秒：靠墙静蹲的正确姿势，“蹲”错了膝盖损伤不可逆！',
     src: 'https://yyyyyyyyyuh.github.io/new/video.mp4',
-    cover: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=900&auto=format&fit=crop',
+    cover: 'https://images.pexels.com/photos/6455777/pexels-photo-6455777.jpeg?auto=compress&cs=tinysrgb&w=1200',
     duration: '01:00',
   },
   {
     id: 'v2',
-    title: '开合跳跟练：video1',
+    title: '一首音乐挑战开合跳，看看你能做多少？',
     src: 'https://yyyyyyyyyuh.github.io/new/video1.mp4',
-    cover: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=900&auto=format&fit=crop',
+    cover: 'https://images.pexels.com/photos/4498606/pexels-photo-4498606.jpeg?auto=compress&cs=tinysrgb&w=1200',
     duration: '03:14',
   },
   {
@@ -85,7 +85,7 @@ const videoItems = [
   },
 ];
 const video2Override = {
-  title: 'video1.mp4 开合跳跟练',
+  title: '一首音乐挑战开合跳，看看你能做多少？',
   src: 'https://yyyyyyyyyuh.github.io/new/video1.mp4',
   duration: '00:53',
 };
