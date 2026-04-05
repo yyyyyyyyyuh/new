@@ -252,6 +252,7 @@ h3 { margin: 0 0 8px; }
 
 .follow-detect-row {
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .detect-timer {

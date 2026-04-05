@@ -102,7 +102,11 @@ let detectionBackend = '';
 let legacyPose = null;
 let legacyLandmarks = null;
 let jumpJackCount = 0;
-let jumpJackPhase = 'idle';
+let jumpJackState = 'ready';
+let jumpJackSmooth = null;
+let jumpOpenStableFrames = 0;
+let jumpCloseStableFrames = 0;
+let jumpStateFrameAge = 0;
 const defaultPlans = [
   ['晨间拉伸', '15分钟', '呼吸与上肢放松'],
   ['核心稳定', '20分钟', '坐姿平衡训练'],
@@ -488,6 +492,56 @@ function detectWallSquatCorrections(landmarks) {
   };
 }
 
+function pointDist(a, b) {
+  return Math.hypot((a?.x || 0) - (b?.x || 0), (a?.y || 0) - (b?.y || 0));
+}
+
+function smoothMetric(prev, next, alpha = 0.35) {
+  if (typeof prev !== 'number') return next;
+  return prev * (1 - alpha) + next * alpha;
+}
+
+function analyzeJumpingJack(landmarks) {
+  const lShoulder = landmarks[11];
+  const rShoulder = landmarks[12];
+  const lHip = landmarks[23];
+  const rHip = landmarks[24];
+  const lKnee = landmarks[25];
+  const rKnee = landmarks[26];
+  const lAnkle = landmarks[27];
+  const rAnkle = landmarks[28];
+  const lWrist = landmarks[15];
+  const rWrist = landmarks[16];
+  if (!lShoulder || !rShoulder || !lHip || !rHip || !lKnee || !rKnee || !lAnkle || !rAnkle || !lWrist || !rWrist) {
+    return null;
+  }
+
+  const shoulderWidth = Math.max(0.06, pointDist(lShoulder, rShoulder));
+  const ankleNormRaw = pointDist(lAnkle, rAnkle) / shoulderWidth;
+  const leftRaiseRaw = (lShoulder.y - lWrist.y) / shoulderWidth;
+  const rightRaiseRaw = (rShoulder.y - rWrist.y) / shoulderWidth;
+  const armSyncRaw = Math.abs(leftRaiseRaw - rightRaiseRaw);
+  const kneeSyncRaw = Math.abs(lKnee.y - rKnee.y) / shoulderWidth;
+  const hipSyncRaw = Math.abs(lHip.y - rHip.y) / shoulderWidth;
+  const torsoTiltRaw = Math.abs(((lShoulder.x + rShoulder.x) / 2) - ((lHip.x + rHip.x) / 2)) / shoulderWidth;
+
+  jumpJackSmooth = jumpJackSmooth || {};
+  jumpJackSmooth.ankleNorm = smoothMetric(jumpJackSmooth.ankleNorm, ankleNormRaw);
+  jumpJackSmooth.leftRaise = smoothMetric(jumpJackSmooth.leftRaise, leftRaiseRaw);
+  jumpJackSmooth.rightRaise = smoothMetric(jumpJackSmooth.rightRaise, rightRaiseRaw);
+  jumpJackSmooth.armSync = smoothMetric(jumpJackSmooth.armSync, armSyncRaw);
+  jumpJackSmooth.kneeSync = smoothMetric(jumpJackSmooth.kneeSync, kneeSyncRaw);
+  jumpJackSmooth.hipSync = smoothMetric(jumpJackSmooth.hipSync, hipSyncRaw);
+  jumpJackSmooth.torsoTilt = smoothMetric(jumpJackSmooth.torsoTilt, torsoTiltRaw);
+
+  const metrics = jumpJackSmooth;
+  const openCond = metrics.ankleNorm > 2.0 && metrics.leftRaise > 0.35 && metrics.rightRaise > 0.35 && metrics.armSync < 0.28 && metrics.torsoTilt < 0.26;
+  const closeCond = metrics.ankleNorm < 1.35 && metrics.leftRaise < -0.1 && metrics.rightRaise < -0.1 && metrics.torsoTilt < 0.26;
+  const synced = metrics.armSync < 0.28 && metrics.kneeSync < 0.32 && metrics.hipSync < 0.26;
+
+  return { metrics, openCond, closeCond, synced };
+}
+
 async function initPoseLandmarker() {
   if (!window.vision?.PoseLandmarker || !window.vision?.FilesetResolver) return false;
   if (!visionFileset) {
@@ -534,10 +588,12 @@ async function openFollowTrainingPage() {
   const correctionList = document.getElementById('correctionList');
   const currentPoseState = document.getElementById('currentPoseState');
   const startDetectBtn = document.getElementById('startDetectBtn');
+  const resetCountBtn = document.getElementById('resetCountBtn');
+  const humanDetectedText = document.getElementById('humanDetectedText');
   const actionHint = document.getElementById('actionHint');
   const squatTimerText = document.getElementById('squatTimerText');
   const poseCanvas = document.getElementById('poseCanvas');
-  if (!followTitle || !followSource || !followVideo || !postureCamera || !poseEngineStatus || !correctionList || !currentPoseState || !startDetectBtn || !actionHint || !squatTimerText || !poseCanvas) return;
+  if (!followTitle || !followSource || !followVideo || !postureCamera || !poseEngineStatus || !correctionList || !currentPoseState || !startDetectBtn || !resetCountBtn || !humanDetectedText || !actionHint || !squatTimerText || !poseCanvas) return;
 
   followTitle.textContent = `${followItem.title}（跟练模式）`;
   followSource.src = followItem.src;
@@ -545,6 +601,7 @@ async function openFollowTrainingPage() {
   switchTab('followTraining');
 
   correctionList.innerHTML = '<li>动作建议：点击“开始检测”后将开启摄像头并进行骨架识别。</li>';
+  humanDetectedText.textContent = '人体识别：未检测到';
   currentPoseState.textContent = '当前动作状态：未开始检测';
   actionHint.textContent = exerciseMode === 'jumpingJack'
     ? '动作提示：开合跳检测将随视频播放立即开始'
@@ -554,9 +611,22 @@ async function openFollowTrainingPage() {
   accumulatedHoldMs = 0;
   squatStartAt = null;
   jumpJackCount = 0;
-  jumpJackPhase = 'idle';
+  jumpJackState = 'ready';
+  jumpJackSmooth = null;
+  jumpOpenStableFrames = 0;
+  jumpCloseStableFrames = 0;
+  jumpStateFrameAge = 0;
   followVideo.currentTime = 0;
   followVideo.play().catch(() => {});
+  resetCountBtn.onclick = () => {
+    jumpJackCount = 0;
+    jumpJackState = 'ready';
+    jumpOpenStableFrames = 0;
+    jumpCloseStableFrames = 0;
+    jumpStateFrameAge = 0;
+    squatTimerText.textContent = exerciseMode === 'jumpingJack' ? '开合跳计数：0 次' : '靠墙静蹲计时：00:00';
+    correctionList.innerHTML = '<li>计数已重置，请先回到合拢状态再开始动作。</li>';
+  };
   startDetectBtn.onclick = async () => {
     if (detectionRunning) return;
     poseEngineStatus.textContent = '识别状态：正在开启摄像头与 Pose Landmarker...';
@@ -612,6 +682,7 @@ async function openFollowTrainingPage() {
       let hints = [];
 
       if (landmarks) {
+        humanDetectedText.textContent = '人体识别：已检测到';
         const lm = landmarks;
         const conns = window.vision?.PoseLandmarker?.POSE_CONNECTIONS || [
           { start: 11, end: 13 }, { start: 13, end: 15 }, { start: 12, end: 14 }, { start: 14, end: 16 },
@@ -637,45 +708,49 @@ async function openFollowTrainingPage() {
         });
 
         if (exerciseMode === 'jumpingJack') {
-          const lWrist = lm[15];
-          const rWrist = lm[16];
-          const lShoulder = lm[11];
-          const rShoulder = lm[12];
-          const lAnkle = lm[27];
-          const rAnkle = lm[28];
-          const lHip = lm[23];
-          const rHip = lm[24];
-          if (lWrist && rWrist && lShoulder && rShoulder && lAnkle && rAnkle && lHip && rHip) {
-            const armsUp = lWrist.y < lShoulder.y && rWrist.y < rShoulder.y;
-            const shoulderDist = Math.abs(lShoulder.x - rShoulder.x);
-            const ankleDist = Math.abs(lAnkle.x - rAnkle.x);
-            const legsApart = ankleDist > shoulderDist * 1.35;
-            const legsClosed = ankleDist < shoulderDist * 1.1;
-            const torsoStable = Math.abs(((lHip.x + rHip.x) / 2) - ((lShoulder.x + rShoulder.x) / 2)) < 0.1;
-            const openPose = armsUp && legsApart;
-            const closePose = !armsUp && legsClosed;
+          const ana = analyzeJumpingJack(lm);
+          actionHint.textContent = '动作提示：开合跳（合拢 → 张开 → 合拢 为 1 次）';
+          if (!ana) {
+            hints = ['请完整进入画面以进行开合跳检测。'];
+          } else {
+            const { metrics, openCond, closeCond, synced } = ana;
+            jumpStateFrameAge += 1;
+            jumpOpenStableFrames = openCond ? jumpOpenStableFrames + 1 : 0;
+            jumpCloseStableFrames = closeCond ? jumpCloseStableFrames + 1 : 0;
 
-            actionHint.textContent = '动作提示：开合跳（双手过头，双脚开合有节奏）';
-            if (openPose) {
-              currentPoseState.textContent = '当前动作状态：开合姿态';
-              jumpJackPhase = 'open';
-              hints.push('动作正确，请保持节奏。');
-            } else if (closePose) {
-              currentPoseState.textContent = '当前动作状态：并拢姿态';
-              if (jumpJackPhase === 'open') {
-                jumpJackCount += 1;
+            if (jumpJackState === 'ready') {
+              currentPoseState.textContent = '当前动作状态：准备阶段（先回到合拢）';
+              if (jumpCloseStableFrames >= 4) {
+                jumpJackState = 'closed_ready';
+                jumpStateFrameAge = 0;
+              } else {
+                hints.push('先回到合拢姿势：双脚并拢、双手自然下垂。');
               }
-              jumpJackPhase = 'closed';
-            } else {
-              currentPoseState.textContent = '当前动作状态：姿势待调整';
+            } else if (jumpJackState === 'closed_ready') {
+              currentPoseState.textContent = '当前动作状态：合拢姿态';
+              if (jumpOpenStableFrames >= 3) {
+                jumpJackState = 'opened';
+                jumpStateFrameAge = 0;
+              }
+            } else if (jumpJackState === 'opened') {
+              currentPoseState.textContent = '当前动作状态：张开姿态';
+              if (jumpCloseStableFrames >= 3) {
+                jumpJackCount += 1;
+                jumpJackState = 'closed_ready';
+                jumpStateFrameAge = 0;
+                hints.push('动作正确，请保持。');
+              } else if (jumpStateFrameAge > 120) {
+                hints.push('动作做完整：请从张开回到合拢再计数。');
+              }
             }
 
-            if (!armsUp) hints.push('手臂抬过头顶后再并拢。');
-            if (!legsApart && !legsClosed) hints.push('双脚开合幅度再明显一些。');
-            if (!torsoStable) hints.push('躯干保持稳定，避免左右晃动。');
+            if (metrics.leftRaise < 0.35 || metrics.rightRaise < 0.35) hints.push('手臂抬高一点。');
+            if (metrics.ankleNorm < 2.0 && jumpJackState !== 'ready') hints.push('双脚再打开一点。');
+            if (!synced) hints.push('注意左右同步。');
+            if (metrics.torsoTilt > 0.26) hints.push('保持身体稳定。');
+            if (!hints.length && jumpJackState !== 'ready') hints.push('动作正确，请保持。');
+
             squatTimerText.textContent = `开合跳计数：${jumpJackCount} 次`;
-          } else {
-            hints = ['请完整进入画面以进行开合跳检测。'];
           }
         } else if (t >= 20) {
           actionHint.textContent = '动作提示：靠墙静蹲（背贴墙、膝约90°、大腿接近水平）';
@@ -706,6 +781,7 @@ async function openFollowTrainingPage() {
           squatTimerText.textContent = `靠墙静蹲计时：${formatClock(accumulatedHoldMs)}`;
         }
       } else {
+        humanDetectedText.textContent = '人体识别：未检测到';
         hints = ['未检测到完整人体关键点，请完整进入镜头并保持光线充足。'];
       }
 
