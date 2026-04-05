@@ -44,14 +44,14 @@ const videoItems = [
   {
     id: 'v1',
     title: '健身60秒：靠墙静蹲的正确姿势，“蹲”错了膝盖损伤不可逆！',
-    src: 'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-00on8o/video.mp4',
+    src: 'https://yyyyyyyyyuh.github.io/new/video.mp4',
     cover: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=900&auto=format&fit=crop',
     duration: '01:00',
   },
   {
     id: 'v2',
     title: '开合跳跟练：video1',
-    src: 'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-931aui/video1.mp4',
+    src: 'https://yyyyyyyyyuh.github.io/new/video1.mp4',
     cover: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=900&auto=format&fit=crop',
     duration: '03:14',
   },
@@ -86,8 +86,18 @@ const videoItems = [
 ];
 const video2Override = {
   title: 'video1.mp4 开合跳跟练',
-  src: 'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-931aui/video1.mp4',
+  src: 'https://yyyyyyyyyuh.github.io/new/video1.mp4',
   duration: '00:53',
+};
+const videoSourceCandidates = {
+  v1: [
+    'https://yyyyyyyyyuh.github.io/new/video.mp4',
+    'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-00on8o/video.mp4',
+  ],
+  v2: [
+    'https://yyyyyyyyyuh.github.io/new/video1.mp4',
+    'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-931aui/video1.mp4',
+  ],
 };
 let activeVideoId = videoItems[0].id;
 let followPromptShown = false;
@@ -367,6 +377,22 @@ function renderVideoComments() {
   list.innerHTML = comments.length ? comments.map((x) => `<p>${x}</p>`).join('') : '<p>暂无评论，来发布第一条吧。</p>';
 }
 
+function loadVideoWithFallback(player, sourceEl, videoId) {
+  const list = videoSourceCandidates[videoId] || [sourceEl.src];
+  let idx = 0;
+  const tryLoad = () => {
+    sourceEl.src = list[idx];
+    player.load();
+  };
+  player.onerror = () => {
+    if (idx < list.length - 1) {
+      idx += 1;
+      tryLoad();
+    }
+  };
+  tryLoad();
+}
+
 function openVideoDetail(videoId) {
   const videosSection = document.getElementById('videos');
   const detail = document.getElementById('videoDetailCard');
@@ -378,8 +404,7 @@ function openVideoDetail(videoId) {
   const view = target.id === 'v2' ? { ...target, ...video2Override } : target;
   activeVideoId = target.id;
   title.textContent = view.title;
-  source.src = view.src;
-  player.load();
+  loadVideoWithFallback(player, source, view.id);
   followPromptShown = false;
   detail.classList.remove('hidden');
   videosSection?.classList.add('video-detail-mode');
@@ -596,8 +621,7 @@ async function openFollowTrainingPage() {
   if (!followTitle || !followSource || !followVideo || !postureCamera || !poseEngineStatus || !correctionList || !currentPoseState || !startDetectBtn || !resetCountBtn || !humanDetectedText || !actionHint || !squatTimerText || !poseCanvas) return;
 
   followTitle.textContent = `${followItem.title}（跟练模式）`;
-  followSource.src = followItem.src;
-  followVideo.load();
+  loadVideoWithFallback(followVideo, followSource, followItem.id);
   switchTab('followTraining');
 
   correctionList.innerHTML = '<li>动作建议：点击“开始检测”后将开启摄像头并进行骨架识别。</li>';
