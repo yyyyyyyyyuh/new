@@ -658,7 +658,7 @@ async function openFollowTrainingPage() {
 }
 
 async function askAndOpenFollowTraining() {
-  const join = window.confirm('是否开启“视频跟练 + 摄像头实时纠正”？开启后会进入跟练页面：左侧播放教学视频，右侧通过动作捕捉实时提示你调整姿势。');
+  const join = window.confirm('是否开启摄像头进行视频跟练?\n开启后会进入跟练页面：左侧播放教学视频，右侧通过动作捕捉实时提示你调整姿势');
   if (!join) return false;
   await openFollowTrainingPage();
   return true;

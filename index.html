@@ -105,7 +105,7 @@
               <h3 id="videoDetailTitle">健身60秒：靠墙静蹲的正确姿势，“蹲”错了膝盖损伤不可逆！</h3>
               <div class="video-detail-actions">
                 <button id="videoFavBtn" class="pill-btn">收藏</button>
-                <button id="startFollowTrainingBtn" class="pill-btn">开启跟练与动作捕捉</button>
+                <button id="startFollowTrainingBtn" class="pill-btn">开启跟练</button>
               </div>
               <div class="video-comment-box">
                 <h4>评论区</h4>
@@ -122,7 +122,7 @@
 
         <section id="followTraining" class="tab-content card">
           <div class="panel-head">
-            <h2>视频跟练与实时纠正</h2>
+            <h2>视频跟练</h2>
             <button id="followTrainingBackBtn" class="pill-btn ghost">返回视频详情</button>
           </div>
           <div class="follow-training-layout">
@@ -138,16 +138,14 @@
                 <video id="postureCamera" autoplay muted playsinline></video>
                 <canvas id="poseCanvas"></canvas>
               </div>
-              <div class="comment-row">
+              <div class="comment-row follow-detect-row">
                 <button id="startDetectBtn" class="pill-btn">开始检测</button>
+                <p id="squatTimerText" class="notice status-pill detect-timer">靠墙静蹲计时：00:00</p>
               </div>
               <div class="follow-status-grid pretty">
                 <p id="currentPoseState" class="notice status-pill">当前动作状态：未开始检测</p>
                 <p id="actionHint" class="notice status-pill">动作提示：等待视频进入“靠墙静蹲”阶段…</p>
-                <div class="follow-status-inline">
-                  <p id="squatTimerText" class="notice status-pill">靠墙静蹲计时：00:00</p>
-                  <p id="poseEngineStatus" class="notice status-pill">识别状态：待启动摄像头</p>
-                </div>
+                <p id="poseEngineStatus" class="hidden" aria-hidden="true"></p>
               </div>
               <ul id="correctionList" class="simple-list correction-pretty"></ul>
             </article>

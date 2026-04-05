@@ -250,6 +250,18 @@ h3 { margin: 0 0 8px; }
   gap: 8px;
 }
 
+.follow-detect-row {
+  align-items: center;
+}
+
+.detect-timer {
+  margin: 0;
+  min-width: 220px;
+  color: #fff;
+  background: #e7bf55;
+  border-color: #e7bf55;
+}
+
 .status-pill {
   margin: 0;
   padding: 10px 12px;
@@ -303,6 +315,8 @@ h3 { margin: 0 0 8px; }
   .video-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .follow-training-layout { grid-template-columns: 1fr; }
   .follow-status-inline { grid-template-columns: 1fr; }
+  .follow-detect-row { flex-direction: column; align-items: stretch; }
+  .detect-timer { min-width: 0; }
 }
 
 .ai-float-girl {
