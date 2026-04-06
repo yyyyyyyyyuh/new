@@ -58,7 +58,7 @@ const videoItems = [
   {
     id: 'v3',
     title: '肩颈舒缓训练：办公室人群放松指南',
-    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    src: 'https://yyyyyyyyyuh.github.io/new/video2.mp4',
     cover: 'https://images.unsplash.com/photo-1549576490-b0b4831ef60a?w=900&auto=format&fit=crop',
     duration: '02:32',
   },
@@ -100,6 +100,11 @@ const videoSourceCandidates = {
     'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-931aui/video1.mp4',
     'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
   ],
+  v3: [
+    'https://yyyyyyyyyuh.github.io/new/video2.mp4',
+    'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-38pkkp/video2.mp4',
+    'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+  ],
 };
 let activeVideoId = videoItems[0].id;
 let followPromptShown = false;
@@ -119,6 +124,8 @@ let jumpJackSmooth = null;
 let jumpOpenStableFrames = 0;
 let jumpCloseStableFrames = 0;
 let jumpStateFrameAge = 0;
+let rehabPhaseIndex = 0;
+let rehabPhaseStableFrames = 0;
 const defaultPlans = [
   ['晨间拉伸', '15分钟', '呼吸与上肢放松'],
   ['核心稳定', '20分钟', '坐姿平衡训练'],
@@ -590,6 +597,98 @@ function analyzeJumpingJack(landmarks) {
   return { metrics, openCond, closeCond, synced };
 }
 
+function angleAt(a, b, c) {
+  const abx = a.x - b.x;
+  const aby = a.y - b.y;
+  const cbx = c.x - b.x;
+  const cby = c.y - b.y;
+  const dot = abx * cbx + aby * cby;
+  const mag = Math.hypot(abx, aby) * Math.hypot(cbx, cby);
+  if (!mag) return 180;
+  return Math.acos(Math.max(-1, Math.min(1, dot / mag))) * (180 / Math.PI);
+}
+
+function analyzeRehabSequence(landmarks, phaseIndex) {
+  const lHip = landmarks[23];
+  const rHip = landmarks[24];
+  const lKnee = landmarks[25];
+  const rKnee = landmarks[26];
+  const lAnkle = landmarks[27];
+  const rAnkle = landmarks[28];
+  const lFoot = landmarks[31] || lAnkle;
+  const rFoot = landmarks[32] || rAnkle;
+  const lShoulder = landmarks[11];
+  const rShoulder = landmarks[12];
+  if (!lHip || !rHip || !lKnee || !rKnee || !lAnkle || !rAnkle || !lShoulder || !rShoulder) return null;
+
+  const hipY = (lHip.y + rHip.y) / 2;
+  const shoulderWidth = Math.max(0.06, pointDist(lShoulder, rShoulder));
+  const leftLift = (lHip.y - lKnee.y) / shoulderWidth;
+  const rightLift = (rHip.y - rKnee.y) / shoulderWidth;
+  const liftStrength = Math.max(leftLift, rightLift);
+  const liftSide = leftLift > rightLift ? 'left' : 'right';
+  const sideKnee = liftSide === 'left' ? lKnee : rKnee;
+  const sideHip = liftSide === 'left' ? lHip : rHip;
+  const sideAnkle = liftSide === 'left' ? lAnkle : rAnkle;
+  const kneeAngle = angleAt(sideHip, sideKnee, sideAnkle);
+  const heelToHip = pointDist(sideAnkle, sideHip) / shoulderWidth;
+  const trunkTilt = Math.abs(((lShoulder.x + rShoulder.x) / 2) - ((lHip.x + rHip.x) / 2)) / shoulderWidth;
+  const leftKneeAngle = angleAt(lHip, lKnee, lAnkle);
+  const rightKneeAngle = angleAt(rHip, rKnee, rAnkle);
+  const leftAnkleFlex = angleAt(lKnee, lAnkle, lFoot);
+  const rightAnkleFlex = angleAt(rKnee, rAnkle, rFoot);
+
+  if (phaseIndex === 0) {
+    const good = liftStrength > 0.34 && kneeAngle < 122 && trunkTilt < 0.26;
+    const hints = [];
+    if (liftStrength <= 0.34) hints.push('抬大腿更高一点，目标接近髋部高度。');
+    if (kneeAngle >= 122) hints.push('屈膝再明显一些，保持单腿屈髋屈膝。');
+    if (trunkTilt >= 0.26) hints.push('躯干保持稳定，避免身体侧倾。');
+    return {
+      phaseName: '屈髋抬大腿（单腿屈髋屈膝）',
+      good,
+      hints: hints.length ? hints : ['动作正确，请保持当前抬腿节奏。'],
+    };
+  }
+
+  if (phaseIndex === 1) {
+    const rearLift = (hipY - Math.min(lAnkle.y, rAnkle.y)) / shoulderWidth;
+    const good = rearLift > 0.25 && trunkTilt < 0.3;
+    const hints = [];
+    if (rearLift <= 0.25) hints.push('后侧抬腿幅度再大一点。');
+    if (trunkTilt >= 0.3) hints.push('核心收紧，保持躯干稳定。');
+    return {
+      phaseName: '后侧抬腿',
+      good,
+      hints: hints.length ? hints : ['动作正确，请保持后侧发力。'],
+    };
+  }
+
+  if (phaseIndex === 2) {
+    const good = heelToHip < 1.02 && kneeAngle < 96 && trunkTilt < 0.3;
+    const hints = [];
+    if (heelToHip >= 1.02) hints.push('脚后跟再贴近臀部一些。');
+    if (kneeAngle >= 96) hints.push('后蹬时屈膝再充分。');
+    if (trunkTilt >= 0.3) hints.push('保持上身直立，不要前倾。');
+    return {
+      phaseName: '后蹬腿（脚后跟贴近臀部）',
+      good,
+      hints: hints.length ? hints : ['动作正确，请保持后蹬节奏。'],
+    };
+  }
+
+  const kickGood = (leftKneeAngle > 152 || rightKneeAngle > 152) && (leftAnkleFlex < 138 || rightAnkleFlex < 138);
+  const hints = [];
+  if (!(leftKneeAngle > 152 || rightKneeAngle > 152)) hints.push('伸膝再充分一些，腿尽量踢直。');
+  if (!(leftAnkleFlex < 138 || rightAnkleFlex < 138)) hints.push('勾脚尖更明显一些，保持踝背屈。');
+  if (trunkTilt >= 0.3) hints.push('坐位踢腿时躯干保持稳定。');
+  return {
+    phaseName: '坐位踢腿（伸膝勾脚尖）',
+    good: kickGood && trunkTilt < 0.3,
+    hints: hints.length ? hints : ['动作正确，请保持踢腿幅度。'],
+  };
+}
+
 async function initPoseLandmarker() {
   if (!window.vision?.PoseLandmarker || !window.vision?.FilesetResolver) return false;
   if (!visionFileset) {
@@ -627,7 +726,7 @@ async function initLegacyPose() {
 async function openFollowTrainingPage() {
   const item = videoItems.find((x) => x.id === activeVideoId) || videoItems[0];
   const followItem = item.id === 'v2' ? { ...item, ...video2Override } : item;
-  const exerciseMode = item.id === 'v2' ? 'jumpingJack' : 'wallSquat';
+  const exerciseMode = item.id === 'v2' ? 'jumpingJack' : (item.id === 'v3' ? 'rehabSequence' : 'wallSquat');
   const followTitle = document.getElementById('followTrainingTitle');
   const followSource = document.getElementById('followTrainingSource');
   const followVideo = document.getElementById('followTrainingVideo');
@@ -652,8 +751,8 @@ async function openFollowTrainingPage() {
   currentPoseState.textContent = '当前动作状态：未开始检测';
   actionHint.textContent = exerciseMode === 'jumpingJack'
     ? '动作提示：开合跳检测将随视频播放立即开始'
-    : '动作提示：等待视频进入“靠墙静蹲”阶段…';
-  squatTimerText.textContent = exerciseMode === 'jumpingJack' ? '开合跳计数：0 次' : '靠墙静蹲计时：00:00';
+    : (exerciseMode === 'rehabSequence' ? '动作提示：先检测屈髋抬大腿（单腿屈髋屈膝）' : '动作提示：等待视频进入“靠墙静蹲”阶段…');
+  squatTimerText.textContent = exerciseMode === 'jumpingJack' ? '开合跳计数：0 次' : (exerciseMode === 'rehabSequence' ? '阶段完成：0 / 4' : '靠墙静蹲计时：00:00');
   poseEngineStatus.textContent = '识别状态：待启动摄像头';
   accumulatedHoldMs = 0;
   squatStartAt = null;
@@ -663,6 +762,8 @@ async function openFollowTrainingPage() {
   jumpOpenStableFrames = 0;
   jumpCloseStableFrames = 0;
   jumpStateFrameAge = 0;
+  rehabPhaseIndex = 0;
+  rehabPhaseStableFrames = 0;
   followVideo.currentTime = 0;
   followVideo.play().catch(() => {});
   resetCountBtn.onclick = () => {
@@ -671,8 +772,12 @@ async function openFollowTrainingPage() {
     jumpOpenStableFrames = 0;
     jumpCloseStableFrames = 0;
     jumpStateFrameAge = 0;
-    squatTimerText.textContent = exerciseMode === 'jumpingJack' ? '开合跳计数：0 次' : '靠墙静蹲计时：00:00';
-    correctionList.innerHTML = '<li>计数已重置，请先回到合拢状态再开始动作。</li>';
+    rehabPhaseIndex = 0;
+    rehabPhaseStableFrames = 0;
+    squatTimerText.textContent = exerciseMode === 'jumpingJack' ? '开合跳计数：0 次' : (exerciseMode === 'rehabSequence' ? '阶段完成：0 / 4' : '靠墙静蹲计时：00:00');
+    correctionList.innerHTML = exerciseMode === 'rehabSequence'
+      ? '<li>阶段已重置，请从屈髋抬大腿动作开始。</li>'
+      : '<li>计数已重置，请先回到合拢状态再开始动作。</li>';
   };
   startDetectBtn.onclick = async () => {
     if (detectionRunning) return;
@@ -696,7 +801,7 @@ async function openFollowTrainingPage() {
         : '识别状态：已切换到 MediaPipe Pose 兼容模式';
       currentPoseState.textContent = exerciseMode === 'jumpingJack'
         ? '当前动作状态：检测中（开合跳）'
-        : '当前动作状态：检测中（等待标准靠墙下蹲）';
+        : (exerciseMode === 'rehabSequence' ? '当前动作状态：检测中（分阶段康复训练）' : '当前动作状态：检测中（等待标准靠墙下蹲）');
     } catch (err) {
       const reason = err?.name === 'NotAllowedError'
         ? '摄像头权限被拒绝'
@@ -799,6 +904,40 @@ async function openFollowTrainingPage() {
 
             squatTimerText.textContent = `开合跳计数：${jumpJackCount} 次`;
           }
+        } else if (exerciseMode === 'rehabSequence') {
+          let timelinePhase = 0;
+          if (t >= 29) timelinePhase = 3;
+          else if (t >= 19) timelinePhase = 2;
+          else if (t >= 11) timelinePhase = 1;
+
+          rehabPhaseIndex = Math.max(rehabPhaseIndex, timelinePhase);
+          const phaseAnalysis = analyzeRehabSequence(lm, rehabPhaseIndex);
+          const phaseNames = [
+            '屈髋抬大腿（单腿屈髋屈膝）',
+            '后侧抬腿',
+            '后蹬腿（脚后跟贴近臀部）',
+            '坐位踢腿（伸膝勾脚尖）',
+          ];
+          actionHint.textContent = `动作提示：当前阶段 - ${phaseNames[rehabPhaseIndex]}`;
+
+          if (!phaseAnalysis) {
+            hints = ['请完整进入画面以进行动作识别。'];
+          } else {
+            currentPoseState.textContent = `当前动作状态：${phaseAnalysis.phaseName}`;
+            if (phaseAnalysis.good) {
+              rehabPhaseStableFrames += 1;
+              hints = ['动作正确，请保持。'];
+              if (rehabPhaseStableFrames >= 10 && rehabPhaseIndex < 3) {
+                rehabPhaseIndex += 1;
+                rehabPhaseStableFrames = 0;
+                hints = [`很好！进入下一阶段：${phaseNames[rehabPhaseIndex]}`];
+              }
+            } else {
+              rehabPhaseStableFrames = 0;
+              hints = phaseAnalysis.hints;
+            }
+          }
+          squatTimerText.textContent = `阶段完成：${Math.min(4, rehabPhaseIndex + (rehabPhaseStableFrames >= 10 ? 1 : 0))} / 4`;
         } else if (t >= 20) {
           actionHint.textContent = '动作提示：靠墙静蹲（背贴墙、膝约90°、大腿接近水平）';
           const analysis = detectWallSquatCorrections(lm);
