@@ -57,7 +57,7 @@ const videoItems = [
   },
   {
     id: 'v3',
-    title: '肩颈舒缓训练：办公室人群放松指南',
+    title: '下肢康复必做的4个动作！快来和我们练起来吧',
     src: 'https://yyyyyyyyyuh.github.io/new/video2.mp4',
     cover: 'https://images.unsplash.com/photo-1549576490-b0b4831ef60a?w=900&auto=format&fit=crop',
     duration: '02:32',
