@@ -5,9 +5,6 @@ const todayDate = document.getElementById('todayDate');
 const planGrid = document.getElementById('planGrid');
 const careText = document.getElementById('careText');
 const aiPlan = document.getElementById('aiPlan');
-const nearbyVideos = document.getElementById('nearbyVideos');
-const locationHint = document.getElementById('locationHint');
-const watchTimer = document.getElementById('watchTimer');
 const restModal = document.getElementById('restModal');
 
 const calendarWeek = document.getElementById('calendarWeek');
@@ -42,26 +39,92 @@ const sportsData = [
   '多地体育馆完成无障碍升级并开放康复时段。',
   '公益机构联合高校举办“运动康复开放周”。',
 ];
+
+const videoItems = [
+  {
+    id: 'v1',
+    title: '健身60秒：靠墙静蹲的正确姿势，“蹲”错了膝盖损伤不可逆！',
+    src: 'https://yyyyyyyyyuh.github.io/new/video.mp4',
+    cover: 'https://images.pexels.com/photos/6455777/pexels-photo-6455777.jpeg?auto=compress&cs=tinysrgb&w=1200',
+    duration: '01:00',
+  },
+  {
+    id: 'v2',
+    title: '一首音乐挑战开合跳，看看你能做多少？',
+    src: 'https://yyyyyyyyyuh.github.io/new/video1.mp4',
+    cover: 'https://images.pexels.com/photos/4498606/pexels-photo-4498606.jpeg?auto=compress&cs=tinysrgb&w=1200',
+    duration: '03:14',
+  },
+  {
+    id: 'v3',
+    title: '肩颈舒缓训练：办公室人群放松指南',
+    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    cover: 'https://images.unsplash.com/photo-1549576490-b0b4831ef60a?w=900&auto=format&fit=crop',
+    duration: '02:32',
+  },
+  {
+    id: 'v4',
+    title: '下肢恢复训练：安全提升膝踝稳定性',
+    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    cover: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=900&auto=format&fit=crop',
+    duration: '04:06',
+  },
+  {
+    id: 'v5',
+    title: '呼吸节律训练：60秒恢复体能状态',
+    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    cover: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=900&auto=format&fit=crop',
+    duration: '01:20',
+  },
+  {
+    id: 'v6',
+    title: '睡前放松拉伸：改善睡眠质量的轻训练',
+    src: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    cover: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=900&auto=format&fit=crop',
+    duration: '02:48',
+  },
+];
+const video2Override = {
+  title: '一首音乐挑战开合跳，看看你能做多少？',
+  src: 'https://yyyyyyyyyuh.github.io/new/video1.mp4',
+  duration: '00:53',
+};
+const videoSourceCandidates = {
+  v1: [
+    'https://yyyyyyyyyuh.github.io/new/video.mp4',
+    'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-00on8o/video.mp4',
+    'https://www.w3schools.com/html/mov_bbb.mp4',
+  ],
+  v2: [
+    'https://yyyyyyyyyuh.github.io/new/video1.mp4',
+    'https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-931aui/video1.mp4',
+    'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+  ],
+};
+let activeVideoId = videoItems[0].id;
+let followPromptShown = false;
+let cameraStream = null;
+let squatStartAt = null;
+let accumulatedHoldMs = 0;
+let detectRafId = null;
+let poseLandmarker = null;
+let visionFileset = null;
+let detectionRunning = false;
+let detectionBackend = '';
+let legacyPose = null;
+let legacyLandmarks = null;
+let jumpJackCount = 0;
+let jumpJackState = 'ready';
+let jumpJackSmooth = null;
+let jumpOpenStableFrames = 0;
+let jumpCloseStableFrames = 0;
+let jumpStateFrameAge = 0;
 const defaultPlans = [
   ['晨间拉伸', '15分钟', '呼吸与上肢放松'],
   ['核心稳定', '20分钟', '坐姿平衡训练'],
   ['步态辅助', '25分钟', '步态矫正与耐力'],
   ['睡前舒缓', '12分钟', '肩颈与情绪放松'],
 ];
-const geoVideos = {
-  default: [
-    { title: '轮椅肩背放松课', area: '同城康复中心', dist: '2.1km' },
-    { title: '社区无障碍球类体验', area: '市民体育公园', dist: '3.5km' },
-  ],
-  north: [
-    { title: '北方冬季关节保暖训练', area: '北城康复站', dist: '1.8km' },
-    { title: '居家平衡板训练', area: '邻里运动社', dist: '4.2km' },
-  ],
-  south: [
-    { title: '湿热气候下肌群恢复课', area: '南城区康复学院', dist: '2.7km' },
-    { title: '水中康复体验', area: '滨江运动中心', dist: '5.1km' },
-  ],
-};
 
 const therapyMap = {
   浙江: {
@@ -185,6 +248,11 @@ function currentUser() {
 }
 
 function switchTab(tabId) {
+  if (tabId !== 'followTraining') {
+    const followVideo = document.getElementById('followTrainingVideo');
+    if (followVideo && !followVideo.paused) followVideo.pause();
+    stopCameraStream();
+  }
   tabs.forEach((b) => b.classList.toggle('active', b.dataset.tab === tabId));
   sections.forEach((s) => s.classList.toggle('active', s.id === tabId));
 }
@@ -284,10 +352,499 @@ function addHistory(item) {
   renderProfileData();
 }
 
-function renderNearby(list) {
-  nearbyVideos.innerHTML = list
-    .map((v) => `<div class="video-card"><h4>${v.title}</h4><p>${v.area}</p><p>距离：${v.dist}</p><button class="hub-btn play-nearby" data-title="${v.title}">观看并记录</button></div>`)
+function videoCommentsStore() {
+  return JSON.parse(localStorage.getItem('rehabVideoComments') || '{}');
+}
+
+function saveVideoComments(store) {
+  localStorage.setItem('rehabVideoComments', JSON.stringify(store));
+}
+
+function renderVideoCards() {
+  const grid = document.getElementById('videoCardGrid');
+  if (!grid) return;
+  grid.innerHTML = videoItems
+    .map((item) => {
+      const view = item.id === 'v2' ? { ...item, ...video2Override } : item;
+      return `<article class="video-tile" data-video-id="${view.id}"><img src="${view.cover}" alt="${view.title}"/><div class="video-tile-body"><h4>${view.title}</h4><p>${view.duration}</p></div></article>`;
+    })
     .join('');
+}
+
+function renderVideoComments() {
+  const list = document.getElementById('videoCommentList');
+  if (!list) return;
+  const store = videoCommentsStore();
+  const comments = store[activeVideoId] || [];
+  list.innerHTML = comments.length ? comments.map((x) => `<p>${x}</p>`).join('') : '<p>暂无评论，来发布第一条吧。</p>';
+}
+
+function loadVideoWithFallback(player, sourceEl, videoId) {
+  const list = videoSourceCandidates[videoId] || [sourceEl.src];
+  let idx = 0;
+  let resolved = false;
+  let probeTimer = null;
+  const clearProbe = () => {
+    if (probeTimer) {
+      window.clearTimeout(probeTimer);
+      probeTimer = null;
+    }
+  };
+  const advance = () => {
+    if (resolved) return;
+    if (idx < list.length - 1) {
+      idx += 1;
+      tryLoad();
+    }
+  };
+  const tryLoad = () => {
+    clearProbe();
+    sourceEl.src = list[idx];
+    player.load();
+    probeTimer = window.setTimeout(() => {
+      if (!resolved && player.readyState < 2) advance();
+    }, 2600);
+  };
+  player.onerror = advance;
+  player.onloadeddata = () => {
+    resolved = true;
+    clearProbe();
+  };
+  tryLoad();
+}
+
+function openVideoDetail(videoId) {
+  const videosSection = document.getElementById('videos');
+  const detail = document.getElementById('videoDetailCard');
+  const title = document.getElementById('videoDetailTitle');
+  const source = document.getElementById('rehabVideoSource');
+  const player = document.getElementById('rehabVideo');
+  if (!detail || !title || !source || !player) return;
+  const target = videoItems.find((x) => x.id === videoId) || videoItems[0];
+  const view = target.id === 'v2' ? { ...target, ...video2Override } : target;
+  activeVideoId = target.id;
+  title.textContent = view.title;
+  loadVideoWithFallback(player, source, view.id);
+  followPromptShown = false;
+  detail.classList.remove('hidden');
+  videosSection?.classList.add('video-detail-mode');
+  detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  renderVideoComments();
+}
+
+function closeVideoDetail() {
+  const videosSection = document.getElementById('videos');
+  const detail = document.getElementById('videoDetailCard');
+  if (!videosSection || !detail) return;
+  detail.classList.add('hidden');
+  videosSection.classList.remove('video-detail-mode');
+}
+
+function formatClock(ms) {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+  const ss = String(sec % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
+function stopCameraStream() {
+  detectionRunning = false;
+  detectionBackend = '';
+  if (detectRafId) {
+    window.cancelAnimationFrame(detectRafId);
+    detectRafId = null;
+  }
+  if (poseLandmarker?.close) {
+    poseLandmarker.close();
+    poseLandmarker = null;
+  }
+  if (legacyPose?.close) {
+    legacyPose.close();
+    legacyPose = null;
+  }
+  legacyLandmarks = null;
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+  const cam = document.getElementById('postureCamera');
+  if (cam) cam.srcObject = null;
+  const canvas = document.getElementById('poseCanvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+function calcAngle(a, b, c) {
+  if (!a || !b || !c) return 180;
+  const abx = a.x - b.x;
+  const aby = a.y - b.y;
+  const cbx = c.x - b.x;
+  const cby = c.y - b.y;
+  const dot = abx * cbx + aby * cby;
+  const mag1 = Math.hypot(abx, aby);
+  const mag2 = Math.hypot(cbx, cby);
+  if (!mag1 || !mag2) return 180;
+  const cos = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
+  return (Math.acos(cos) * 180) / Math.PI;
+}
+
+function detectWallSquatCorrections(landmarks) {
+  const lShoulder = landmarks[11];
+  const rShoulder = landmarks[12];
+  const lHip = landmarks[23];
+  const rHip = landmarks[24];
+  const lKnee = landmarks[25];
+  const rKnee = landmarks[26];
+  const lAnkle = landmarks[27];
+  const rAnkle = landmarks[28];
+  if (!lShoulder || !rShoulder || !lHip || !rHip || !lKnee || !rKnee || !lAnkle || !rAnkle) {
+    return ['识别到的人体关键点不足，请完整进入画面。'];
+  }
+
+  const shoulder = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + rShoulder.y) / 2 };
+  const hip = { x: (lHip.x + rHip.x) / 2, y: (lHip.y + rHip.y) / 2 };
+  const knee = { x: (lKnee.x + rKnee.x) / 2, y: (lKnee.y + rKnee.y) / 2 };
+  const ankle = { x: (lAnkle.x + rAnkle.x) / 2, y: (lAnkle.y + rAnkle.y) / 2 };
+
+  const hints = [];
+  const trunkOffset = Math.abs(shoulder.x - hip.x);
+  if (trunkOffset > 0.065) hints.push('身体前倾过多：背部不能离墙太远，请肩背和下背同时贴墙。');
+
+  const hipKneeDelta = Math.abs(hip.y - knee.y);
+  if (hipKneeDelta > 0.085) hints.push('蹲得不够低：请继续下蹲至大腿接近水平。');
+
+  const leftKneeAngle = calcAngle(lHip, lKnee, lAnkle);
+  const rightKneeAngle = calcAngle(rHip, rKnee, rAnkle);
+  if (leftKneeAngle < 80 || leftKneeAngle > 110 || rightKneeAngle < 80 || rightKneeAngle > 110) hints.push('膝角不合适：建议维持在约 90° 附近。');
+
+  const pelvisTilt = hip.x - knee.x;
+  if (Math.abs(pelvisTilt) > 0.055) hints.push('髋部控制不足：尾骨微微内卷，保持骨盆中立。');
+
+  const leftRightKneeDelta = Math.abs(lKnee.y - rKnee.y);
+  const leftRightHipDelta = Math.abs(lHip.y - rHip.y);
+  if (leftRightKneeDelta > 0.035 || leftRightHipDelta > 0.035) hints.push('左右高低不一致：请保持双侧髋膝同高，均匀受力。');
+
+  const thighHorizontalGood = hipKneeDelta <= 0.085;
+  const trunkVerticalGood = trunkOffset <= 0.065;
+  const symmetryGood = leftRightKneeDelta <= 0.035 && leftRightHipDelta <= 0.035;
+  const kneeAngleGood = leftKneeAngle >= 80 && leftKneeAngle <= 110 && rightKneeAngle >= 80 && rightKneeAngle <= 110;
+  const standard = thighHorizontalGood && trunkVerticalGood && symmetryGood && kneeAngleGood && Math.abs(pelvisTilt) <= 0.055;
+  return {
+    hints,
+    standard,
+  };
+}
+
+function pointDist(a, b) {
+  return Math.hypot((a?.x || 0) - (b?.x || 0), (a?.y || 0) - (b?.y || 0));
+}
+
+function smoothMetric(prev, next, alpha = 0.35) {
+  if (typeof prev !== 'number') return next;
+  return prev * (1 - alpha) + next * alpha;
+}
+
+function analyzeJumpingJack(landmarks) {
+  const lShoulder = landmarks[11];
+  const rShoulder = landmarks[12];
+  const lHip = landmarks[23];
+  const rHip = landmarks[24];
+  const lKnee = landmarks[25];
+  const rKnee = landmarks[26];
+  const lAnkle = landmarks[27];
+  const rAnkle = landmarks[28];
+  const lWrist = landmarks[15];
+  const rWrist = landmarks[16];
+  if (!lShoulder || !rShoulder || !lHip || !rHip || !lKnee || !rKnee || !lAnkle || !rAnkle || !lWrist || !rWrist) {
+    return null;
+  }
+
+  const shoulderWidth = Math.max(0.06, pointDist(lShoulder, rShoulder));
+  const ankleNormRaw = pointDist(lAnkle, rAnkle) / shoulderWidth;
+  const leftRaiseRaw = (lShoulder.y - lWrist.y) / shoulderWidth;
+  const rightRaiseRaw = (rShoulder.y - rWrist.y) / shoulderWidth;
+  const armSyncRaw = Math.abs(leftRaiseRaw - rightRaiseRaw);
+  const kneeSyncRaw = Math.abs(lKnee.y - rKnee.y) / shoulderWidth;
+  const hipSyncRaw = Math.abs(lHip.y - rHip.y) / shoulderWidth;
+  const torsoTiltRaw = Math.abs(((lShoulder.x + rShoulder.x) / 2) - ((lHip.x + rHip.x) / 2)) / shoulderWidth;
+
+  jumpJackSmooth = jumpJackSmooth || {};
+  // 开合跳计数需要比静蹲更灵敏，这里提高平滑更新速度，减少“动作到了却不计数”的滞后。
+  const jumpAlpha = 0.52;
+  jumpJackSmooth.ankleNorm = smoothMetric(jumpJackSmooth.ankleNorm, ankleNormRaw, jumpAlpha);
+  jumpJackSmooth.leftRaise = smoothMetric(jumpJackSmooth.leftRaise, leftRaiseRaw, jumpAlpha);
+  jumpJackSmooth.rightRaise = smoothMetric(jumpJackSmooth.rightRaise, rightRaiseRaw, jumpAlpha);
+  jumpJackSmooth.armSync = smoothMetric(jumpJackSmooth.armSync, armSyncRaw, jumpAlpha);
+  jumpJackSmooth.kneeSync = smoothMetric(jumpJackSmooth.kneeSync, kneeSyncRaw, jumpAlpha);
+  jumpJackSmooth.hipSync = smoothMetric(jumpJackSmooth.hipSync, hipSyncRaw, jumpAlpha);
+  jumpJackSmooth.torsoTilt = smoothMetric(jumpJackSmooth.torsoTilt, torsoTiltRaw, jumpAlpha);
+
+  const metrics = jumpJackSmooth;
+  // 略微放宽阈值：保持“完整开合”要求，同时提升计数灵敏度。
+  const openCond = metrics.ankleNorm > 1.7 && metrics.leftRaise > 0.22 && metrics.rightRaise > 0.22 && metrics.armSync < 0.34 && metrics.torsoTilt < 0.3;
+  const closeCond = metrics.ankleNorm < 1.48 && metrics.leftRaise < 0.02 && metrics.rightRaise < 0.02 && metrics.torsoTilt < 0.3;
+  const synced = metrics.armSync < 0.34 && metrics.kneeSync < 0.38 && metrics.hipSync < 0.3;
+
+  return { metrics, openCond, closeCond, synced };
+}
+
+async function initPoseLandmarker() {
+  if (!window.vision?.PoseLandmarker || !window.vision?.FilesetResolver) return false;
+  if (!visionFileset) {
+    visionFileset = await window.vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm');
+  }
+  poseLandmarker = await window.vision.PoseLandmarker.createFromOptions(visionFileset, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
+    },
+    runningMode: 'VIDEO',
+    numPoses: 1,
+    minPoseDetectionConfidence: 0.55,
+    minTrackingConfidence: 0.55,
+  });
+  return true;
+}
+
+async function initLegacyPose() {
+  if (!window.Pose) return false;
+  legacyPose = new window.Pose({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+  });
+  legacyPose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+  legacyPose.onResults((results) => {
+    legacyLandmarks = results.poseLandmarks || null;
+  });
+  return true;
+}
+
+async function openFollowTrainingPage() {
+  const item = videoItems.find((x) => x.id === activeVideoId) || videoItems[0];
+  const followItem = item.id === 'v2' ? { ...item, ...video2Override } : item;
+  const exerciseMode = item.id === 'v2' ? 'jumpingJack' : 'wallSquat';
+  const followTitle = document.getElementById('followTrainingTitle');
+  const followSource = document.getElementById('followTrainingSource');
+  const followVideo = document.getElementById('followTrainingVideo');
+  const postureCamera = document.getElementById('postureCamera');
+  const poseEngineStatus = document.getElementById('poseEngineStatus');
+  const correctionList = document.getElementById('correctionList');
+  const currentPoseState = document.getElementById('currentPoseState');
+  const startDetectBtn = document.getElementById('startDetectBtn');
+  const resetCountBtn = document.getElementById('resetCountBtn');
+  const humanDetectedText = document.getElementById('humanDetectedText');
+  const actionHint = document.getElementById('actionHint');
+  const squatTimerText = document.getElementById('squatTimerText');
+  const poseCanvas = document.getElementById('poseCanvas');
+  if (!followTitle || !followSource || !followVideo || !postureCamera || !poseEngineStatus || !correctionList || !currentPoseState || !startDetectBtn || !resetCountBtn || !humanDetectedText || !actionHint || !squatTimerText || !poseCanvas) return;
+
+  followTitle.textContent = `${followItem.title}（跟练模式）`;
+  loadVideoWithFallback(followVideo, followSource, followItem.id);
+  switchTab('followTraining');
+
+  correctionList.innerHTML = '<li>动作建议：点击“开始检测”后将开启摄像头并进行骨架识别。</li>';
+  humanDetectedText.textContent = '人体识别：未检测到';
+  currentPoseState.textContent = '当前动作状态：未开始检测';
+  actionHint.textContent = exerciseMode === 'jumpingJack'
+    ? '动作提示：开合跳检测将随视频播放立即开始'
+    : '动作提示：等待视频进入“靠墙静蹲”阶段…';
+  squatTimerText.textContent = exerciseMode === 'jumpingJack' ? '开合跳计数：0 次' : '靠墙静蹲计时：00:00';
+  poseEngineStatus.textContent = '识别状态：待启动摄像头';
+  accumulatedHoldMs = 0;
+  squatStartAt = null;
+  jumpJackCount = 0;
+  jumpJackState = 'ready';
+  jumpJackSmooth = null;
+  jumpOpenStableFrames = 0;
+  jumpCloseStableFrames = 0;
+  jumpStateFrameAge = 0;
+  followVideo.currentTime = 0;
+  followVideo.play().catch(() => {});
+  resetCountBtn.onclick = () => {
+    jumpJackCount = 0;
+    jumpJackState = 'ready';
+    jumpOpenStableFrames = 0;
+    jumpCloseStableFrames = 0;
+    jumpStateFrameAge = 0;
+    squatTimerText.textContent = exerciseMode === 'jumpingJack' ? '开合跳计数：0 次' : '靠墙静蹲计时：00:00';
+    correctionList.innerHTML = '<li>计数已重置，请先回到合拢状态再开始动作。</li>';
+  };
+  startDetectBtn.onclick = async () => {
+    if (detectionRunning) return;
+    poseEngineStatus.textContent = '识别状态：正在开启摄像头与 Pose Landmarker...';
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported');
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      postureCamera.srcObject = cameraStream;
+      await postureCamera.play();
+      const landmarkerReady = await initPoseLandmarker();
+      if (landmarkerReady) {
+        detectionBackend = 'landmarker';
+      } else {
+        const legacyReady = await initLegacyPose();
+        if (!legacyReady) throw new Error('no-pose-engine');
+        detectionBackend = 'legacy';
+      }
+      detectionRunning = true;
+      poseEngineStatus.textContent = detectionBackend === 'landmarker'
+        ? '识别状态：Pose Landmarker 运行中'
+        : '识别状态：已切换到 MediaPipe Pose 兼容模式';
+      currentPoseState.textContent = exerciseMode === 'jumpingJack'
+        ? '当前动作状态：检测中（开合跳）'
+        : '当前动作状态：检测中（等待标准靠墙下蹲）';
+    } catch (err) {
+      const reason = err?.name === 'NotAllowedError'
+        ? '摄像头权限被拒绝'
+        : err?.name === 'NotFoundError'
+          ? '未找到可用摄像头'
+          : '模型加载失败或网络受限';
+      poseEngineStatus.textContent = `识别状态：启动失败（${reason}）`;
+      correctionList.innerHTML = '<li>无法启动动作检测：请允许摄像头权限，并通过 https 或 localhost 打开页面后重试。</li>';
+      return;
+    }
+
+    const ctx = poseCanvas.getContext('2d');
+    const drawLoop = async () => {
+      if (!detectionRunning || !cameraStream || !ctx) return;
+      const vw = postureCamera.videoWidth || 640;
+      const vh = postureCamera.videoHeight || 480;
+      poseCanvas.width = vw;
+      poseCanvas.height = vh;
+      let landmarks = null;
+      if (detectionBackend === 'landmarker' && poseLandmarker) {
+        const nowMs = performance.now();
+        const result = poseLandmarker.detectForVideo(postureCamera, nowMs);
+        landmarks = result?.landmarks?.[0] || null;
+      } else if (detectionBackend === 'legacy' && legacyPose) {
+        await legacyPose.send({ image: postureCamera });
+        landmarks = legacyLandmarks;
+      }
+      ctx.clearRect(0, 0, vw, vh);
+      const t = followVideo.currentTime || 0;
+      let hints = [];
+
+      if (landmarks) {
+        humanDetectedText.textContent = '人体识别：已检测到';
+        const lm = landmarks;
+        const conns = window.vision?.PoseLandmarker?.POSE_CONNECTIONS || [
+          { start: 11, end: 13 }, { start: 13, end: 15 }, { start: 12, end: 14 }, { start: 14, end: 16 },
+          { start: 11, end: 12 }, { start: 11, end: 23 }, { start: 12, end: 24 }, { start: 23, end: 24 },
+          { start: 23, end: 25 }, { start: 24, end: 26 }, { start: 25, end: 27 }, { start: 26, end: 28 },
+        ];
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 2;
+        conns.forEach((c) => {
+          const a = lm[c.start];
+          const b = lm[c.end];
+          if (!a || !b) return;
+          ctx.beginPath();
+          ctx.moveTo(a.x * vw, a.y * vh);
+          ctx.lineTo(b.x * vw, b.y * vh);
+          ctx.stroke();
+        });
+        ctx.fillStyle = '#ffca28';
+        lm.forEach((p) => {
+          ctx.beginPath();
+          ctx.arc(p.x * vw, p.y * vh, 3, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        if (exerciseMode === 'jumpingJack') {
+          const ana = analyzeJumpingJack(lm);
+          actionHint.textContent = '动作提示：开合跳（合拢 → 张开 → 合拢 为 1 次）';
+          if (!ana) {
+            hints = ['请完整进入画面以进行开合跳检测。'];
+          } else {
+            const { metrics, openCond, closeCond, synced } = ana;
+            jumpStateFrameAge += 1;
+            jumpOpenStableFrames = openCond ? jumpOpenStableFrames + 1 : 0;
+            jumpCloseStableFrames = closeCond ? jumpCloseStableFrames + 1 : 0;
+
+            if (jumpJackState === 'ready') {
+              currentPoseState.textContent = '当前动作状态：准备阶段（先回到合拢）';
+              if (jumpCloseStableFrames >= 3) {
+                jumpJackState = 'closed_ready';
+                jumpStateFrameAge = 0;
+              } else {
+                hints.push('先回到合拢姿势：双脚并拢、双手自然下垂。');
+              }
+            } else if (jumpJackState === 'closed_ready') {
+              currentPoseState.textContent = '当前动作状态：合拢姿态';
+              if (jumpOpenStableFrames >= 2) {
+                jumpJackState = 'opened';
+                jumpStateFrameAge = 0;
+              }
+            } else if (jumpJackState === 'opened') {
+              currentPoseState.textContent = '当前动作状态：张开姿态';
+              if (jumpCloseStableFrames >= 2) {
+                jumpJackCount += 1;
+                jumpJackState = 'closed_ready';
+                jumpStateFrameAge = 0;
+                hints.push('动作正确，请保持。');
+              } else if (jumpStateFrameAge > 120) {
+                hints.push('动作做完整：请从张开回到合拢再计数。');
+              }
+            }
+
+            if (metrics.leftRaise < 0.22 || metrics.rightRaise < 0.22) hints.push('手臂抬高一点。');
+            if (metrics.ankleNorm < 1.7 && jumpJackState !== 'ready') hints.push('双脚再打开一点。');
+            if (!synced) hints.push('注意左右同步。');
+            if (metrics.torsoTilt > 0.3) hints.push('保持身体稳定。');
+            if (!hints.length && jumpJackState !== 'ready') hints.push('动作正确，请保持。');
+
+            squatTimerText.textContent = `开合跳计数：${jumpJackCount} 次`;
+          }
+        } else if (t >= 20) {
+          actionHint.textContent = '动作提示：靠墙静蹲（背贴墙、膝约90°、大腿接近水平）';
+          const analysis = detectWallSquatCorrections(lm);
+          if (analysis.standard) {
+            hints = ['动作正确，请保持。'];
+            currentPoseState.textContent = '当前动作状态：标准靠墙静蹲';
+            if (!squatStartAt) squatStartAt = Date.now();
+            const ms = accumulatedHoldMs + (Date.now() - squatStartAt);
+            squatTimerText.textContent = `靠墙静蹲计时：${formatClock(ms)}`;
+          } else {
+            hints = analysis.hints;
+            currentPoseState.textContent = '当前动作状态：姿势待调整';
+            if (squatStartAt) {
+              accumulatedHoldMs += Date.now() - squatStartAt;
+              squatStartAt = null;
+            }
+            squatTimerText.textContent = `靠墙静蹲计时：${formatClock(accumulatedHoldMs)}`;
+          }
+        } else {
+          actionHint.textContent = '动作提示：准备阶段，20 秒后开始靠墙静蹲检测';
+          currentPoseState.textContent = '当前动作状态：准备中';
+          hints = ['请先背靠墙站好，双脚与肩同宽，准备下蹲。'];
+          if (squatStartAt) {
+            accumulatedHoldMs += Date.now() - squatStartAt;
+            squatStartAt = null;
+          }
+          squatTimerText.textContent = `靠墙静蹲计时：${formatClock(accumulatedHoldMs)}`;
+        }
+      } else {
+        humanDetectedText.textContent = '人体识别：未检测到';
+        hints = ['未检测到完整人体关键点，请完整进入镜头并保持光线充足。'];
+      }
+
+      correctionList.innerHTML = hints.map((h) => `<li>${h}</li>`).join('');
+      detectRafId = window.requestAnimationFrame(() => { drawLoop(); });
+    };
+
+    detectRafId = window.requestAnimationFrame(() => { drawLoop(); });
+  };
+}
+
+async function askAndOpenFollowTraining() {
+  const join = window.confirm('是否开启摄像头进行视频跟练?\n开启后会进入跟练页面：左侧播放教学视频，右侧通过动作捕捉实时提示你调整姿势');
+  if (!join) return false;
+  await openFollowTrainingPage();
+  return true;
 }
 
 function renderPosts() {
@@ -537,41 +1094,64 @@ checkinBtn.addEventListener('click', () => {
   renderHealthScore();
 });
 
-document.getElementById('locateBtn').addEventListener('click', () => {
-  if (!navigator.geolocation) {
-    locationHint.textContent = '浏览器不支持定位，已展示默认附近推荐。';
-    renderNearby(geoVideos.default);
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const zone = pos.coords.latitude > 30 ? 'north' : 'south';
-      locationHint.textContent = `定位成功（纬度 ${pos.coords.latitude.toFixed(2)}），已切换附近推荐。`;
-      renderNearby(geoVideos[zone]);
-    },
-    () => {
-      locationHint.textContent = '定位失败，已展示默认附近推荐。';
-      renderNearby(geoVideos.default);
-    },
-  );
+
+
+document.getElementById('videoCardGrid')?.addEventListener('click', (e) => {
+  const card = e.target.closest('.video-tile');
+  if (!card) return;
+  openVideoDetail(card.dataset.videoId);
 });
 
-document.getElementById('nearbyVideos').addEventListener('click', (e) => {
-  if (!e.target.classList.contains('play-nearby')) return;
-  addHistory(`观看附近视频：${e.target.dataset.title}`);
-  const title = e.target.dataset.title;
-  e.target.textContent = '计时中...';
-  e.target.disabled = true;
-  setTimeout(() => {
-    const metrics = todayMetrics();
-    if (!metrics.videoReads.includes(title)) {
-      metrics.videoReads.push(title);
-      saveUserBucket();
-      renderHealthScore();
-    }
-    e.target.textContent = '已计分';
-  }, 60000);
-  document.getElementById('rehabVideo').scrollIntoView({ behavior: 'smooth' });
+document.getElementById('videoFavBtn')?.addEventListener('click', () => {
+  const target = videoItems.find((x) => x.id === activeVideoId);
+  if (!target) return;
+  addFavorite(target.title, '视频专区');
+});
+
+document.getElementById('videoBackBtn')?.addEventListener('click', closeVideoDetail);
+
+document.getElementById('startFollowTrainingBtn')?.addEventListener('click', async () => {
+  const detailPlayer = document.getElementById('rehabVideo');
+  detailPlayer?.pause();
+  followPromptShown = true;
+  await askAndOpenFollowTraining();
+});
+
+document.getElementById('rehabVideo')?.addEventListener('play', async (e) => {
+  if (followPromptShown) return;
+  followPromptShown = true;
+  const player = e.currentTarget;
+  const joined = await askAndOpenFollowTraining();
+  if (!joined) return;
+  player.pause();
+});
+
+document.getElementById('followTrainingBackBtn')?.addEventListener('click', () => {
+  const followVideo = document.getElementById('followTrainingVideo');
+  if (followVideo) {
+    followVideo.pause();
+    followVideo.currentTime = 0;
+  }
+  stopCameraStream();
+  switchTab('videos');
+});
+
+document.getElementById('followTrainingVideo')?.addEventListener('ended', () => {
+  document.getElementById('actionHint').textContent = '动作提示：本次跟练结束，建议放松股四头肌与臀部。';
+});
+
+document.getElementById('videoCommentBtn')?.addEventListener('click', () => {
+  const input = document.getElementById('videoCommentInput');
+  if (!input) return;
+  const content = input.value.trim();
+  if (!content) return;
+  const store = videoCommentsStore();
+  store[activeVideoId] = store[activeVideoId] || [];
+  store[activeVideoId].unshift(`${new Date().toLocaleTimeString('zh-CN')} · ${content}`);
+  store[activeVideoId] = store[activeVideoId].slice(0, 30);
+  saveVideoComments(store);
+  input.value = '';
+  renderVideoComments();
 });
 
 document.getElementById('generatePlanBtn')?.addEventListener('click', () => {
@@ -739,7 +1319,6 @@ document.getElementById('closeRestModal').addEventListener('click', () => restMo
 
 const video = document.getElementById('rehabVideo');
 let watchedSeconds = 0;
-let warned = false;
 let currentVideoScored = false;
 setInterval(() => {
   if (!video.paused && !video.ended) {
@@ -754,123 +1333,95 @@ setInterval(() => {
       }
       currentVideoScored = true;
     }
-    watchTimer.textContent = `已连续观看：${Math.floor(watchedSeconds / 60)} 分钟`;
-    const limit = Number(document.getElementById('limitMinutes').value || 120) * 60;
-    const noDisturb = document.getElementById('noDisturb').checked;
-    const h = new Date().getHours();
-    const inQuiet = h >= 22 || h < 7;
-    if (watchedSeconds >= limit && !warned && !(noDisturb && inQuiet)) {
-      warned = true;
-      restModal.classList.remove('hidden');
-    }
   } else {
     watchedSeconds = 0;
-    warned = false;
     currentVideoScored = false;
   }
 }, 1000);
 
+const appShell = document.querySelector('.app-shell');
 const aiFloatBtn = document.getElementById('aiFloatBtn');
-const aiFloatOverlay = document.getElementById('aiFloatOverlay');
-const aiFloatPanel = document.getElementById('aiFloatPanel');
-const aiFloatDrag = document.getElementById('aiFloatDrag');
-const closeAiFloat = document.getElementById('closeAiFloat');
-const aiFloatInput = document.getElementById('aiFloatInput');
-const aiFloatSend = document.getElementById('aiFloatSend');
-const aiFloatMessages = document.getElementById('aiFloatMessages');
+const aiJourneyOverlay = document.getElementById('aiJourneyOverlay');
+const aiGreetingScene = document.getElementById('aiGreetingScene');
+const aiGroundScene = document.getElementById('aiGroundScene');
+const closeGreetingScene = document.getElementById('closeGreetingScene');
+const exitBtn = document.getElementById('exitBtn');
+const readyBtn = document.getElementById('readyBtn');
+const backHomeBtn = document.getElementById('backHomeBtn');
+const JOURNEY_FADE_IN_MS = 680;
+let journeyCloseTimer = null;
 
-function addFloatMessage(role, text) {
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  div.textContent = text;
-  aiFloatMessages.appendChild(div);
-  aiFloatMessages.scrollTop = aiFloatMessages.scrollHeight;
-}
-
-function replyByPrompt(q) {
-  if (q.includes('酸痛') || q.includes('疼')) return '建议今天以低强度拉伸和热敷为主，训练控制在20分钟内，疼痛加重请暂停并咨询理疗师。';
-  if (q.includes('计划')) return '我为你建议：每周5天轻中度训练+2天恢复，先从核心稳定、关节活动度开始。';
-  return '已收到你的问题。建议从低强度开始，关注心率、疼痛等级和睡眠，并按周复盘调整。';
-}
-
-function openAiFloat() {
-  aiFloatOverlay.classList.remove('hidden');
-  aiFloatOverlay.setAttribute('aria-hidden', 'false');
-}
-
-function closeAiFloatPanel() {
-  aiFloatOverlay.classList.add('hidden');
-  aiFloatOverlay.setAttribute('aria-hidden', 'true');
-}
-
-closeAiFloat.addEventListener('click', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  closeAiFloatPanel();
-});
-aiFloatOverlay.addEventListener('click', (e) => {
-  if (e.target === aiFloatOverlay) closeAiFloatPanel();
-});
-
-aiFloatSend.addEventListener('click', () => {
-  const q = aiFloatInput.value.trim();
-  if (!q) return;
-  addFloatMessage('user', q);
-  addFloatMessage('ai', replyByPrompt(q));
-  aiFloatInput.value = '';
-});
-
-function makeDraggable(handle, target, mode = 'free') {
-  let dragging = false;
-  let moved = false;
-  let startX = 0;
-  let startY = 0;
-  let baseLeft = 0;
-  let baseTop = 0;
-
-  const onMove = (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-
-    let left = baseLeft + dx;
-    let top = baseTop + dy;
-    const maxLeft = window.innerWidth - target.offsetWidth;
-    const maxTop = window.innerHeight - target.offsetHeight;
-    left = Math.min(Math.max(0, left), Math.max(0, maxLeft));
-    top = Math.min(Math.max(0, top), Math.max(0, maxTop));
-
-    target.style.left = `${left}px`;
-    target.style.top = `${top}px`;
-    target.style.right = 'auto';
-    target.style.bottom = 'auto';
-  };
-
-  const onUp = () => {
-    dragging = false;
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    if (mode === 'button' && !moved) openAiFloat();
-  };
-
-  handle.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.mini-close')) return;
-    dragging = true;
-    moved = false;
-    startX = e.clientX;
-    startY = e.clientY;
-    const rect = target.getBoundingClientRect();
-    baseLeft = rect.left;
-    baseTop = rect.top;
-    target.setPointerCapture?.(e.pointerId);
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
+function openAiJourney() {
+  if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
+  if (journeyCloseTimer) {
+    window.clearTimeout(journeyCloseTimer);
+    journeyCloseTimer = null;
+  }
+  aiFloatBtn?.classList.add('is-hidden');
+  appShell?.classList.add('journey-fade-out');
+  aiJourneyOverlay.classList.remove('is-entering');
+  aiJourneyOverlay.classList.remove('hidden');
+  aiJourneyOverlay.style.display = 'block';
+  aiJourneyOverlay.setAttribute('aria-hidden', 'false');
+  aiGreetingScene.classList.remove('hidden');
+  aiGreetingScene.style.display = 'block';
+  aiGroundScene.classList.add('hidden');
+  aiGroundScene.style.display = 'none';
+  void aiJourneyOverlay.offsetWidth;
+  requestAnimationFrame(() => {
+    aiJourneyOverlay.classList.add('is-entering');
   });
 }
 
-makeDraggable(aiFloatBtn, aiFloatBtn, 'button');
-makeDraggable(aiFloatDrag, aiFloatPanel, 'free');
+function closeAiJourney() {
+  if (!aiJourneyOverlay || !aiGreetingScene || !aiGroundScene) return;
+  if (journeyCloseTimer) {
+    window.clearTimeout(journeyCloseTimer);
+  }
+  aiFloatBtn?.classList.remove('is-hidden');
+  appShell?.classList.remove('journey-fade-out');
+  aiJourneyOverlay.classList.remove('is-entering');
+  aiJourneyOverlay.setAttribute('aria-hidden', 'true');
+  journeyCloseTimer = window.setTimeout(() => {
+    if (aiJourneyOverlay.classList.contains('is-entering')) return;
+    aiJourneyOverlay.classList.add('hidden');
+    aiJourneyOverlay.style.display = 'none';
+    journeyCloseTimer = null;
+  }, JOURNEY_FADE_IN_MS);
+  aiGreetingScene.classList.remove('hidden');
+  aiGreetingScene.style.display = 'block';
+  aiGroundScene.classList.add('hidden');
+  aiGroundScene.style.display = 'none';
+}
+
+function showGroundScene() {
+  if (!aiGreetingScene || !aiGroundScene) return;
+  aiGreetingScene.classList.add('hidden');
+  aiGreetingScene.style.display = 'none';
+  aiGroundScene.classList.remove('hidden');
+  aiGroundScene.style.display = 'block';
+}
+
+['click', 'pointerup', 'touchend'].forEach((eventName) => {
+  aiFloatBtn?.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    openAiJourney();
+  });
+});
+closeGreetingScene?.addEventListener('click', closeAiJourney);
+exitBtn?.addEventListener('click', closeAiJourney);
+readyBtn?.addEventListener('click', showGroundScene);
+backHomeBtn?.addEventListener('click', closeAiJourney);
+
+aiJourneyOverlay?.addEventListener('click', (e) => {
+  if (e.target === aiJourneyOverlay) closeAiJourney();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && aiJourneyOverlay && !aiJourneyOverlay.classList.contains('hidden')) {
+    closeAiJourney();
+  }
+});
 
 function init() {
   ensureUserModel();
@@ -880,7 +1431,8 @@ function init() {
   renderCareText();
   renderList('knowledgeList', knowledgeData, '健康知识');
   renderList('sportsList', sportsData, '体育资讯');
-  renderNearby(geoVideos.default);
+  renderVideoCards();
+  closeVideoDetail();
   initTherapyFilters();
   renderTherapistsByRegion();
   renderShop('全部');
