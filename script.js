@@ -1351,98 +1351,14 @@ const islandReadyBtn = document.getElementById('islandReadyBtn');
 const islandExitBtn = document.getElementById('islandExitBtn');
 const ISLAND_FADE_MS = 420;
 let islandCloseTimer = null;
-
-function createFallbackIslandEngine() {
-  let wrap = null;
-  let girl = null;
-  let running = false;
-  let exploring = false;
-  let rafId = 0;
-  const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-  const pos = { x: 0, y: 0, angle: 0 };
-  const onDown = (e) => { if (e.key in keys) keys[e.key] = true; };
-  const onUp = (e) => { if (e.key in keys) keys[e.key] = false; };
-
-  const loop = () => {
-    if (!running || !girl) return;
-    if (exploring) {
-      if (keys.ArrowLeft) pos.angle -= 2.6;
-      if (keys.ArrowRight) pos.angle += 2.6;
-      const rad = (pos.angle * Math.PI) / 180;
-      if (keys.ArrowUp) {
-        pos.x += Math.sin(rad) * 1.8;
-        pos.y -= Math.cos(rad) * 1.8;
-      }
-      if (keys.ArrowDown) {
-        pos.x -= Math.sin(rad) * 1.2;
-        pos.y += Math.cos(rad) * 1.2;
-      }
-      pos.x = Math.max(-220, Math.min(220, pos.x));
-      pos.y = Math.max(-140, Math.min(140, pos.y));
-    }
-    girl.style.transform = `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px)) rotate(${pos.angle}deg)`;
-    rafId = window.requestAnimationFrame(loop);
-  };
-
-  return {
-    async start({ containerId, onProgress }) {
-      const container = document.getElementById(containerId);
-      if (!container) return false;
-      container.innerHTML = '';
-      wrap = document.createElement('div');
-      wrap.style.position = 'absolute';
-      wrap.style.inset = '0';
-      wrap.style.background = 'radial-gradient(circle at 50% 35%, #d8f3ff 0%, #9fcbe4 55%, #8ab19f 100%)';
-      container.appendChild(wrap);
-      girl = document.createElement('img');
-      girl.src = 'girl.png';
-      girl.alt = '角色';
-      girl.style.position = 'absolute';
-      girl.style.left = '50%';
-      girl.style.top = '54%';
-      girl.style.width = '96px';
-      girl.style.height = 'auto';
-      girl.style.transform = 'translate(-50%, -50%)';
-      girl.style.transition = 'transform 0.12s linear';
-      wrap.appendChild(girl);
-      onProgress?.(35);
-      await new Promise((resolve) => window.setTimeout(resolve, 260));
-      onProgress?.(72);
-      await new Promise((resolve) => window.setTimeout(resolve, 280));
-      onProgress?.(100);
-      running = true;
-      exploring = false;
-      pos.x = 0;
-      pos.y = 0;
-      pos.angle = 0;
-      window.addEventListener('keydown', onDown);
-      window.addEventListener('keyup', onUp);
-      if (rafId) window.cancelAnimationFrame(rafId);
-      loop();
-      return true;
-    },
-    enterExploreMode() {
-      exploring = true;
-    },
-    stop() {
-      running = false;
-      exploring = false;
-      Object.keys(keys).forEach((k) => { keys[k] = false; });
-      if (rafId) window.cancelAnimationFrame(rafId);
-      rafId = 0;
-      window.removeEventListener('keydown', onDown);
-      window.removeEventListener('keyup', onUp);
-      if (wrap?.parentNode) wrap.parentNode.removeChild(wrap);
-      wrap = null;
-      girl = null;
-    },
-  };
-}
-
-async function ensureIslandEngine() {
+async function ensureIslandEngine(maxWaitMs = 1800) {
   if (window.Island3D?.start) return true;
-  window.Island3D = createFallbackIslandEngine();
-  return true;
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    await new Promise((resolve) => window.setTimeout(resolve, 80));
+    if (window.Island3D?.start) return true;
+  }
+  return false;
 }
 
 function enterIslandOverlay() {
@@ -1483,7 +1399,11 @@ function exitIslandOverlay() {
 async function openIslandExperience() {
   if (!islandOverlay || !islandLoadingScreen || !islandSceneScreen) return;
   enterIslandOverlay();
-  await ensureIslandEngine();
+  const engineReady = await ensureIslandEngine();
+  if (!engineReady) {
+    islandLoadingText.textContent = '加载失败：3D引擎未加载，请刷新后重试';
+    return;
+  }
   const islandApi = window.Island3D;
   if (!islandApi?.start) {
     islandLoadingText.textContent = '加载失败：3D引擎未就绪';
