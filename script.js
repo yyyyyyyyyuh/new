@@ -1495,8 +1495,46 @@ const islandReadyBtn = document.getElementById('islandReadyBtn');
 const islandExitBtn = document.getElementById('islandExitBtn');
 const ISLAND_FADE_MS = 420;
 let islandCloseTimer = null;
+function loadExternalScript(src) {
+  return new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
 async function ensureIslandEngine(maxWaitMs = 1800) {
   if (window.Island3D?.start) return true;
+  if (!window.THREE) {
+    const threeCandidates = [
+      'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.min.js',
+      'https://unpkg.com/three@0.164.1/build/three.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+    ];
+    for (const src of threeCandidates) {
+      // eslint-disable-next-line no-await-in-loop
+      await loadExternalScript(src);
+      if (window.THREE) break;
+    }
+  }
+  if (window.THREE && !window.THREE.GLTFLoader) {
+    const loaderCandidates = [
+      'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/js/loaders/GLTFLoader.js',
+      'https://unpkg.com/three@0.164.1/examples/js/loaders/GLTFLoader.js',
+      'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
+    ];
+    for (const src of loaderCandidates) {
+      // eslint-disable-next-line no-await-in-loop
+      await loadExternalScript(src);
+      if (window.THREE?.GLTFLoader) break;
+    }
+  }
+  if (!window.Island3D?.start) {
+    await loadExternalScript(`island3d.js?v=${Date.now()}`);
+  }
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
     await new Promise((resolve) => window.setTimeout(resolve, 80));
