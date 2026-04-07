@@ -1489,7 +1489,6 @@ const aiFloatBtn = document.getElementById('aiFloatBtn');
 const islandOverlay = document.getElementById('islandOverlay');
 const islandLoadingScreen = document.getElementById('islandLoadingScreen');
 const islandSceneScreen = document.getElementById('islandSceneScreen');
-const islandLoadingBar = document.getElementById('islandLoadingBar');
 const islandLoadingText = document.getElementById('islandLoadingText');
 const islandWelcomeDialog = document.getElementById('islandWelcomeDialog');
 const islandReadyBtn = document.getElementById('islandReadyBtn');
@@ -1519,8 +1518,7 @@ function enterIslandOverlay() {
   islandLoadingScreen.classList.remove('hidden');
   islandSceneScreen.classList.add('hidden');
   islandWelcomeDialog?.classList.add('hidden');
-  islandLoadingBar.style.width = '0%';
-  islandLoadingText.textContent = '0%';
+  islandLoadingText.textContent = '正在加载您的专属健康岛屿 0%';
   void islandOverlay.offsetWidth;
   islandOverlay.classList.add('visible');
 }
@@ -1560,8 +1558,7 @@ async function openIslandExperience() {
     characterModelPath: 'file:///D:/health_island/new_girl.glb',
     onProgress: (progress) => {
       const val = Math.max(0, Math.min(100, Math.round(progress)));
-      islandLoadingBar.style.width = `${val}%`;
-      islandLoadingText.textContent = `${val}%`;
+      islandLoadingText.textContent = `正在加载您的专属健康岛屿 ${val}%`;
     },
   });
   if (!ok) {
