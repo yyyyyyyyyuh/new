@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>悦动无障碍</title>
+    <title>即刻复能</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,7 +15,7 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar card">
-        <div class="brand">🤍 悦动无障碍</div>
+        <div class="brand">🤍 即刻复能</div>
         <nav class="menu">
           <button class="menu-item active" data-tab="home">首页</button>
           <button class="menu-item" data-tab="knowledge">健康知识</button>
@@ -93,17 +93,65 @@
         <section id="videos" class="tab-content card">
           <div class="panel-head">
             <h2>视频专区</h2>
-            <span>连续观看超 2 小时自动休息提醒</span>
           </div>
-          <div class="panel-head compact">
-            <button id="locateBtn" class="pill-btn">附近推荐</button>
-            <p id="locationHint">点击后根据定位推荐周边视频资源。</p>
+          <div class="video-split-layout">
+            <div id="videoCardGrid" class="video-card-grid"></div>
+
+            <article id="videoDetailCard" class="video-detail-card hidden">
+              <button id="videoBackBtn" class="pill-btn ghost">返回视频列表</button>
+              <video id="rehabVideo" controls width="100%" preload="metadata">
+                <source id="rehabVideoSource" src="https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-00on8o/video.mp4" type="video/mp4" />
+              </video>
+              <h3 id="videoDetailTitle">健身60秒：靠墙静蹲的正确姿势，“蹲”错了膝盖损伤不可逆！</h3>
+              <div class="video-detail-actions">
+                <button id="videoFavBtn" class="pill-btn">收藏</button>
+                <button id="startFollowTrainingBtn" class="pill-btn">开启跟练</button>
+              </div>
+              <div class="video-comment-box">
+                <h4>评论区</h4>
+                <div class="comment-row">
+                  <input id="videoCommentInput" placeholder="写下你的评论..." />
+                  <button id="videoCommentBtn" class="pill-btn">发布评论</button>
+                </div>
+                <div id="videoCommentList" class="simple-list"></div>
+              </div>
+            </article>
           </div>
-          <div id="nearbyVideos" class="video-list"></div>
-          <video id="rehabVideo" controls width="100%" poster="https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200">
-            <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
-          </video>
-          <p id="watchTimer">已连续观看：0 分钟</p>
+
+        </section>
+
+        <section id="followTraining" class="tab-content card">
+          <div class="panel-head">
+            <h2>视频跟练</h2>
+            <button id="followTrainingBackBtn" class="pill-btn ghost">返回视频详情</button>
+          </div>
+          <div class="follow-training-layout">
+            <article class="card inset follow-video-pane">
+              <h3 id="followTrainingTitle">靠墙静蹲跟练</h3>
+              <video id="followTrainingVideo" controls width="100%" preload="metadata">
+                <source id="followTrainingSource" src="https://raw.githubusercontent.com/yyyyyyyyyuh/new/codex/replace-ai-button-with-girl-image-00on8o/video.mp4" type="video/mp4" />
+              </video>
+            </article>
+            <article class="card inset follow-camera-pane">
+              <h3>动作捕捉与纠错</h3>
+              <div class="camera-stage">
+                <video id="postureCamera" autoplay muted playsinline></video>
+                <canvas id="poseCanvas"></canvas>
+              </div>
+              <div class="comment-row follow-detect-row">
+                <button id="startDetectBtn" class="pill-btn">开始检测</button>
+                <button id="resetCountBtn" class="pill-btn ghost">重置计数</button>
+                <p id="squatTimerText" class="notice status-pill detect-timer">靠墙静蹲计时：00:00</p>
+              </div>
+              <div class="follow-status-grid pretty">
+                <p id="humanDetectedText" class="notice status-pill">人体识别：未检测到</p>
+                <p id="currentPoseState" class="notice status-pill">当前动作状态：未开始检测</p>
+                <p id="actionHint" class="notice status-pill">动作提示：等待视频进入“靠墙静蹲”阶段…</p>
+                <p id="poseEngineStatus" class="hidden" aria-hidden="true"></p>
+              </div>
+              <ul id="correctionList" class="simple-list correction-pretty"></ul>
+            </article>
+          </div>
         </section>
 
         <section id="assistant" class="tab-content card">
@@ -244,24 +292,39 @@
     </div>
 
 
-    <button id="aiFloatBtn" class="ai-float-btn" aria-label="打开AI助手">AI助手</button>
+    <button id="aiFloatBtn" class="ai-float-girl" type="button" aria-label="打开AI助手引导">
+      <img src="girl.png" alt="AI助手小女孩" />
+    </button>
 
-    <div id="aiFloatOverlay" class="ai-float-overlay hidden" aria-hidden="true">
-      <div id="aiFloatPanel" class="ai-float-panel" role="dialog" aria-label="悬浮AI对话框">
-        <div id="aiFloatDrag" class="ai-float-head">
-          <strong>AI康复助手</strong>
-          <button id="closeAiFloat" class="mini-close" aria-label="关闭">✕</button>
+    <div id="islandOverlay" class="island-overlay hidden" aria-hidden="true">
+      <section id="islandLoadingScreen" class="island-loading-screen">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <h2>正在加载您的专属健康岛屿…</h2>
+        <div class="loading-track">
+          <div id="islandLoadingBar" class="loading-bar"></div>
         </div>
-        <div id="aiFloatMessages" class="ai-float-messages">
-          <div class="msg ai">你好，我是你的康复助手。告诉我你的身体情况，我来给你建议。</div>
+        <p id="islandLoadingText">0%</p>
+      </section>
+
+      <section id="islandSceneScreen" class="island-scene-screen hidden" aria-label="3D康复社区">
+        <div id="island3DViewport" class="island-viewport"></div>
+        <div id="islandWelcomeDialog" class="island-dialog card">
+          <p>你好呀！这里是你的专属健康岛屿，你可以自由探索不同区域，准备好了吗？</p>
+          <div class="island-actions">
+            <button id="islandReadyBtn" class="pill-btn" type="button">准备好了</button>
+            <button id="islandExitBtn" class="pill-btn ghost" type="button">我要退出</button>
+          </div>
         </div>
-        <div class="ai-float-input">
-          <textarea id="aiFloatInput" placeholder="例如：我今天腿部酸痛，能做哪些低强度训练？"></textarea>
-          <button id="aiFloatSend" class="pill-btn">发送</button>
-        </div>
-      </div>
+      </section>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.164.1/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://unpkg.com/three@0.164.1/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.164.1/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="island3d.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
