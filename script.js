@@ -1556,8 +1556,8 @@ async function openIslandExperience() {
   }
   const ok = await islandApi.start({
     containerId: 'island3DViewport',
-    worldModelPath: './3dground.glb',
-    characterModelPath: './new_girl.glb',
+    worldModelPath: 'file:///D:/health_island/3dground.glb',
+    characterModelPath: 'file:///D:/health_island/new_girl.glb',
     onProgress: (progress) => {
       const val = Math.max(0, Math.min(100, Math.round(progress)));
       islandLoadingBar.style.width = `${val}%`;
@@ -1565,7 +1565,7 @@ async function openIslandExperience() {
     },
   });
   if (!ok) {
-    islandLoadingText.textContent = '加载失败：请确认 3dground.glb / new_girl.glb 已放在项目根目录';
+    islandLoadingText.textContent = '加载失败：请确认 3dground.glb / new_girl.glb 可访问（D:/health_island 或项目目录）';
     return;
   }
   islandLoadingScreen.classList.add('hidden');

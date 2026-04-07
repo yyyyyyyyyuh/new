@@ -14,7 +14,7 @@
   let exploring = false;
   let inTransition = false;
   let transitionStart = 0;
-  const keyState = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+  const keyState = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, s: false, d: false };
 
   function ensureScene(containerId) {
     containerEl = document.getElementById(containerId);
@@ -150,12 +150,12 @@
     const turnSpeed = 1.9;
     const moveSpeed = 2.2;
 
-    if (keyState.ArrowLeft) girlRoot.rotation.y += turnSpeed * dt;
-    if (keyState.ArrowRight) girlRoot.rotation.y -= turnSpeed * dt;
+    if (keyState.ArrowLeft || keyState.a) girlRoot.rotation.y += turnSpeed * dt;
+    if (keyState.ArrowRight || keyState.d) girlRoot.rotation.y -= turnSpeed * dt;
 
     const direction = new THREE.Vector3(0, 0, -1).applyEuler(girlRoot.rotation);
-    if (keyState.ArrowUp) girlRoot.position.addScaledVector(direction, moveSpeed * dt);
-    if (keyState.ArrowDown) girlRoot.position.addScaledVector(direction, -moveSpeed * dt * 0.7);
+    if (keyState.ArrowUp || keyState.w) girlRoot.position.addScaledVector(direction, moveSpeed * dt);
+    if (keyState.ArrowDown || keyState.s) girlRoot.position.addScaledVector(direction, -moveSpeed * dt * 0.7);
 
     girlRoot.position.x = THREE.MathUtils.clamp(girlRoot.position.x, -24, 24);
     girlRoot.position.z = THREE.MathUtils.clamp(girlRoot.position.z, -24, 24);
@@ -184,10 +184,14 @@
   }
 
   function handleKeyDown(event) {
+    const k = String(event.key || '').toLowerCase();
+    if (k in keyState) keyState[k] = true;
     if (event.key in keyState) keyState[event.key] = true;
   }
 
   function handleKeyUp(event) {
+    const k = String(event.key || '').toLowerCase();
+    if (k in keyState) keyState[k] = false;
     if (event.key in keyState) keyState[event.key] = false;
   }
 
@@ -201,11 +205,12 @@
 
     const worldCandidates = [
       worldModelPath,
+      'file:///D:/health_island/3dground.glb',
+      'file:///D:/myweb/3dground.glb',
       './3dground.glb',
       './models/3dground.glb',
       '/3dground.glb',
       'https://raw.githubusercontent.com/yyyyyyyyyuh/new/main/3dground.glb',
-      'file:///D:/myweb/3dground.glb',
     ].filter(Boolean);
     worldRoot = await loadWithCandidates(worldCandidates, (p) => onProgress && onProgress(8 + p * 0.42));
     if (!worldRoot) {
@@ -215,11 +220,12 @@
 
     const roleCandidates = [
       characterModelPath,
+      'file:///D:/health_island/new_girl.glb',
+      'file:///D:/myweb/new_girl.glb',
       './new_girl.glb',
       './models/new_girl.glb',
       '/new_girl.glb',
       'https://raw.githubusercontent.com/yyyyyyyyyuh/new/main/new_girl.glb',
-      'file:///D:/myweb/new_girl.glb',
     ].filter(Boolean);
     girlRoot = await loadWithCandidates(roleCandidates, (p) => onProgress && onProgress(50 + p * 0.45));
     if (!girlRoot) {
