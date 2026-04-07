@@ -104,11 +104,18 @@
     });
   }
 
+  function loadGLBWithTimeout(path, onProgress, timeoutMs = 9000) {
+    const timeoutPromise = new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error(`timeout: ${path}`)), timeoutMs);
+    });
+    return Promise.race([loadGLB(path, onProgress), timeoutPromise]);
+  }
+
   async function loadWithCandidates(candidates, onProgress) {
     for (let i = 0; i < candidates.length; i += 1) {
       const candidate = candidates[i];
       // eslint-disable-next-line no-await-in-loop
-      const loaded = await loadGLB(candidate, onProgress).then((scene3d) => ({ scene3d })).catch(() => null);
+      const loaded = await loadGLBWithTimeout(candidate, onProgress).then((scene3d) => ({ scene3d })).catch(() => null);
       if (loaded) return loaded.scene3d;
     }
     return null;
