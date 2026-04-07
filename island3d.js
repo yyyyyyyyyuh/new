@@ -222,13 +222,14 @@
       onProgress && onProgress(50);
     }
 
-    const girlCandidates = [
-  avatarModelPath,
+const girlCandidates = [
+  characterModelPath,
   './models/new_girl.glb',
   './new_girl.glb',
   '/models/new_girl.glb'
 ].filter(Boolean);
-    girlRoot = await loadWithCandidates(roleCandidates, (p) => onProgress && onProgress(50 + p * 0.45));
+
+girlRoot = await loadWithCandidates(girlCandidates, (p) => onProgress && onProgress(50 + p * 0.45));
     if (!girlRoot) {
       girlRoot = makeFallbackGirl();
       onProgress && onProgress(96);
