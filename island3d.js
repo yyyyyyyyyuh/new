@@ -211,23 +211,21 @@
     onProgress && onProgress(8);
 
     const worldCandidates = [
-  worldModelPath,
-  './models/3dground.glb',
-  './3dground.glb',
-  '/models/3dground.glb'
-].filter(Boolean);
+      worldModelPath,
+      '/new/models/3dground.glb',
+      './models/3dground.glb'
+    ].filter(Boolean);
     worldRoot = await loadWithCandidates(worldCandidates, (p) => onProgress && onProgress(8 + p * 0.42));
     if (!worldRoot) {
       worldRoot = makeFallbackWorld();
       onProgress && onProgress(50);
     }
-
-const girlCandidates = [
-  characterModelPath,
-  './models/new_girl.glb',
-  './new_girl.glb',
-  '/models/new_girl.glb'
-].filter(Boolean);
+    
+    const girlCandidates = [
+      characterModelPath,
+      '/new/models/new_girl.glb',
+      './models/new_girl.glb'
+    ].filter(Boolean);
 
 girlRoot = await loadWithCandidates(girlCandidates, (p) => onProgress && onProgress(50 + p * 0.45));
     if (!girlRoot) {
