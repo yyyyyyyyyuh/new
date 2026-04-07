@@ -57,7 +57,7 @@
   function makeFallbackGirl() {
     const group = new THREE.Group();
     const body = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.22, 0.7, 4, 8),
+      new THREE.CylinderGeometry(0.22, 0.7, 4, 8),
       new THREE.MeshStandardMaterial({ color: '#89b57b' }),
     );
     body.position.y = 0.8;
